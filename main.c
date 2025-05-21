@@ -1,0 +1,22 @@
+#include <SDL2/SDL.h>
+#include <stdio.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include "game.h"
+#include "map.h"
+#include "input.h"
+#include "renderer.h"
+
+int main (){
+  struct Game* game = init_game();
+  if (!game) cleanup(game, EXIT_FAILURE);
+
+  bool quit = false;
+  while(!quit){
+    if (check_quit(game->event)) quit = true;
+    render(game->renderer);
+    usleep(16000);
+  }
+  cleanup(game, EXIT_SUCCESS);
+  return 0;
+}
