@@ -8,7 +8,7 @@
 #include "renderer.h"
 
 int main (){
-  struct Game* game = init_game();
+  Game* game = init_game();
   if (!game) cleanup(game, EXIT_FAILURE);
 
   bool quit = false;

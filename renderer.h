@@ -1,17 +1,16 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
-#include "game.h"
 #include <SDL2/SDL.h>
 #include <stdbool.h>
 
-struct Renderer {
-  SDL_Renderer *renderer;
+typedef struct{
+  SDL_Renderer *sdl_renderer;
   SDL_Window *window; 
-};
+}Renderer;
 
-struct Renderer* init_renderer();
-void render(struct Renderer *r);
-void renderer_cleanup(struct Renderer *renderer);
+Renderer* init_renderer();
+void render(Renderer *renderer);
+void destroy_renderer(Renderer *renderer);
 
 #endif
