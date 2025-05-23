@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include "game.h"
+#include "player.h"
 #include "map.h"
 #include "input.h"
 #include "renderer.h"
@@ -13,8 +14,15 @@ int main (){
 
   bool quit = false;
   while(!quit){
-    if (check_quit(game->event)) quit = true;
-    render(game->renderer);
+    SDL_Event event;
+    while(SDL_PollEvent(&event)){
+      if(event.type == SDL_QUIT){
+        quit = true;
+      }
+    }
+    update_game(game);
+
+    render(game->renderer, game->player);
     usleep(16000);
   }
   cleanup(game, EXIT_SUCCESS);

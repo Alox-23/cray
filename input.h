@@ -5,5 +5,6 @@
 #include <stdbool.h>
 
 bool check_quit(SDL_Event event);
+void player_input(SDL_Event event);
 
 #endif

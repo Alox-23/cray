@@ -1,4 +1,5 @@
 #include "renderer.h"
+#include "player.h"
 
 Renderer* init_renderer(){
   Renderer* renderer = malloc(sizeof(Renderer));
@@ -19,15 +20,25 @@ Renderer* init_renderer(){
   return renderer;
 }
 
-void render(Renderer *renderer){
-    SDL_SetRenderDrawColor(renderer->sdl_renderer, 255, 0, 0, 255);
+void render_player_2d(Renderer *renderer, Player *player){
+  if (!renderer || !player){
+    printf("Wrong player or renderer pointer parameter inside render_player_2d\n");
+    return;
+  }
+ 
+  int scaler = 10;
+  SDL_RenderDrawLine(renderer->sdl_renderer, player->pos.x, player->pos.y, player->pos.x + player->dir.x * scaler, player->pos.y + player->dir.y * scaler);
+}
 
-    SDL_RenderClear(renderer->sdl_renderer);
+void render(Renderer *renderer, Player *player){
+  SDL_SetRenderDrawColor(renderer->sdl_renderer, 255, 0, 0, 255);
 
-    SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 0, 255, 255);
-    SDL_RenderDrawLine(renderer->sdl_renderer, 0, 0, 640, 480);
+  SDL_RenderClear(renderer->sdl_renderer);
 
-    SDL_RenderPresent(renderer->sdl_renderer);
+  SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 0, 255, 255);
+  render_player_2d(renderer, player);
+
+  SDL_RenderPresent(renderer->sdl_renderer);
 }
 
 void destroy_renderer(Renderer *renderer){

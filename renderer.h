@@ -3,6 +3,7 @@
 
 #include <SDL2/SDL.h>
 #include <stdbool.h>
+#include "player.h"
 
 typedef struct{
   SDL_Renderer *sdl_renderer;
@@ -10,7 +11,8 @@ typedef struct{
 }Renderer;
 
 Renderer* init_renderer();
-void render(Renderer *renderer);
+void render_player_2d(Renderer *renderer, Player *player);
+void render(Renderer *renderer, Player *player);
 void destroy_renderer(Renderer *renderer);
 
 #endif

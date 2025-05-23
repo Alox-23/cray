@@ -10,10 +10,10 @@
 typedef struct{
   Player *player;
   Renderer *renderer;
-  SDL_Event event;
 }Game;
 
 void cleanup(Game *game, int exit_status);
+void update_game(Game *game);
 Game* init_game(); 
 
 #endif

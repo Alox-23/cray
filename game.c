@@ -1,5 +1,4 @@
 #include "game.h"
-#include "player.h"
 
 Game* init_game(){
   Game* game = malloc(sizeof(Game));
@@ -14,6 +13,10 @@ Game* init_game(){
   if (!game->player) return NULL;
 
   return game;
+}
+
+void update_game(Game *game){
+  update_player(game->player);
 }
 
 void cleanup(Game *game, int exit_status){
