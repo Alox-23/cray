@@ -3,8 +3,8 @@
 
 #include <SDL2/SDL.h>
 #include <stdbool.h>
+#include "game.h"
 
-bool check_quit(SDL_Event event);
-void player_input(SDL_Event event);
+void input_poll(Game *game);
 
 #endif

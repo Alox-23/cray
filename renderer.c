@@ -26,7 +26,15 @@ void render_player_2d(Renderer *renderer, Player *player){
     return;
   }
  
-  int scaler = 10;
+  SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 0, 255, 255);
+  SDL_Rect rect;
+  rect.x = player->pos.x -10;
+  rect.y = player->pos.y -10;
+  rect.w = 20;
+  rect.h = 20;
+  SDL_RenderDrawRect(renderer->sdl_renderer, &rect); 
+  
+  int scaler = 25;
   SDL_RenderDrawLine(renderer->sdl_renderer, player->pos.x, player->pos.y, player->pos.x + player->dir.x * scaler, player->pos.y + player->dir.y * scaler);
 }
 
@@ -35,7 +43,6 @@ void render(Renderer *renderer, Player *player){
 
   SDL_RenderClear(renderer->sdl_renderer);
 
-  SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 0, 255, 255);
   render_player_2d(renderer, player);
 
   SDL_RenderPresent(renderer->sdl_renderer);

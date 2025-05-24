@@ -10,6 +10,7 @@
 typedef struct{
   Player *player;
   Renderer *renderer;
+  int state;
 }Game;
 
 void cleanup(Game *game, int exit_status);
