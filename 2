@@ -20,16 +20,16 @@ void player_handle_input(Player *player, const Uint8 *keystate, double delta_tim
   player->vel.y = 0;
 
   if (keystate[SDL_SCANCODE_W]){
-    player->vel = scale(player->dir, SPEED);
+    player->vel = scale(player->dir, SPEED * delta_time);
   }
   if (keystate[SDL_SCANCODE_A]){
-    player->vel = scale(rotate(player->dir, -M_PI/2), SPEED);
+    player->vel = scale(rotate(player->dir, -M_PI/2), SPEED * delta_time);
   }
   if (keystate[SDL_SCANCODE_S]){
-    player->vel = scale(rotate(player->dir, -M_PI), SPEED);
+    player->vel = scale(rotate(player->dir, -M_PI), SPEED * delta_time);
   }
   if (keystate[SDL_SCANCODE_D]){
-    player->vel = scale(rotate(player->dir, -3*M_PI/2), SPEED);
+    player->vel = scale(rotate(player->dir, -3*M_PI/2), SPEED * delta_time);
   }
 
   player->a_vel = 0;
@@ -43,8 +43,8 @@ void player_handle_input(Player *player, const Uint8 *keystate, double delta_tim
 
 void update_player(Player *player, double delta_time){
   printf("player pos, vel, dir =  (%f, %f), (%f, %f), (%f, %f)\n", player->pos.x, player->pos.y, player->vel.x, player->vel.y, player->dir.x, player->dir.y);
-  player->pos = add(player->pos, scale(player->vel, delta_time));
-  player->dir = rotate(player->dir, player->a_vel * delta_time);
+  player->pos = add(player->pos, player->vel);
+  player->dir = rotate(player->dir, player->a_vel);
   player->angle += player->a_vel;
 }
 
