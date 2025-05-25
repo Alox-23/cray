@@ -13,6 +13,9 @@ Game* init_game(){
   game->player = init_player();
   if (!game->player) return NULL;
   
+  game->map = init_map(10, 10, 10);
+  if (!game->map) return NULL;
+
   game->keystate = SDL_GetKeyboardState(NULL);
   
   game->state = 1;

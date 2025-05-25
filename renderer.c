@@ -1,5 +1,6 @@
 #include "renderer.h"
 #include "player.h"
+#include "map.h"
 
 Renderer* init_renderer(){
   Renderer* renderer = malloc(sizeof(Renderer));
@@ -18,6 +19,10 @@ Renderer* init_renderer(){
   }
 
   return renderer;
+}
+
+void render_map_2d(Renderer *renderer, Map *map){
+  
 }
 
 void render_player_2d(Renderer *renderer, Player *player){

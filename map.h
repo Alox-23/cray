@@ -2,19 +2,25 @@
 #define MAP_H
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
-#define MAPX 10
-#define MAPY 10
+#define TEXTURE_COUNT 2
 
-struct Map {
+typedef struct{
   int *buffer;
   size_t width;
   size_t height;
-};
+  size_t texture_index;
+  size_t texture_count;
+  char **textures;
+}Map;
 
 //impure function modifies struct of type MapArray that is probably decalred in main.
-int init_map(struct Map *mapArray, size_t width, size_t height);
-int* get_map_value(struct Map *mapArray, size_t x, size_t y);
-void clean_map(struct Map *mapArray);
+Map* init_map(size_t width, size_t height, size_t texture_count);
+const char* get_texture(Map *map, size_t texture_index);
+int get_map_value(Map *mapArray, size_t x, size_t y);
+void set_map_value(Map *map, size_t x, size_t y, int value); 
+void clean_map(Map *mapArray);
 
 #endif
