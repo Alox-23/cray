@@ -4,12 +4,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <SDL2/SDL.h>
 
 #define TEXTURE_COUNT 2
 
 typedef struct{
   int *buffer;
   size_t width;
+  SDL_Rect rect;
   size_t height;
   size_t texture_index;
   size_t texture_count;

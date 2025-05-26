@@ -19,7 +19,7 @@ int main (){
    
     input_poll(game);
     update_game(game);
-    render(game->renderer, game->player);
+    render(game->renderer, game->player, game->map);
     usleep(16000);
   }
   cleanup(game, EXIT_SUCCESS);
