@@ -25,7 +25,7 @@ Game* init_game(){
 }
 
 void update_game(Game *game){
-  update_player(game->player, game->delta_time);
+  update_player(game->player, game->delta_time, game->map);
 }
 
 void cleanup(Game *game, int exit_status){

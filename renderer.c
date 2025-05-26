@@ -47,13 +47,13 @@ void render_player_2d(Renderer *renderer, Player *player){
     return;
   }
   
-  double offset = renderer->scale_2d/2 * player->player_size;
+  double offset = renderer->scale_2d/2;
 
   SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 0, 255, 255); 
   player->rect.x = (player->pos.x) * renderer->scale_2d - offset;
   player->rect.y = (player->pos.y) * renderer->scale_2d - offset;
-  player->rect.w = renderer->scale_2d * player->player_size;
-  player->rect.h = renderer->scale_2d * player->player_size;
+  player->rect.w = renderer->scale_2d;
+  player->rect.h = renderer->scale_2d;
   SDL_RenderDrawRect(renderer->sdl_renderer, &player->rect); 
   int line_end_x = player->rect.x + player->dir.x * renderer->scale_2d + offset;
   int line_end_y = player->rect.y + player->dir.y * renderer->scale_2d + offset;

@@ -1,5 +1,6 @@
 #include "player.h"
 #include "utils.h"
+#include "map.h"
 
 Player* init_player(){
   Player* p = malloc(sizeof(Player));
@@ -42,9 +43,17 @@ void player_handle_input(Player *player, const Uint8 *keystate){
   }
 }
 
-void update_player(Player *player, double delta_time){
-  player->pos = add(player->pos, scale(player->vel, delta_time));
-  printf("POS = (%f, %f)\n DIR = (%f, %f) VEL(%f, %f)", player->pos.x, player->pos.y, player->dir.x, player->dir.y, player->vel.x, player->vel.y);
+void update_player(Player *player, double delta_time, Map *map){
+  player->vel = scale(player->vel, delta_time);
+  
+  size_t map_x = (size_t)player->pos.x + player->vel.x*1.6 + 0.5;
+  size_t map_y = (size_t)player->pos.y + player->vel.y*1.6 + 0.5;
+   
+  if (!get_map_value(map, map_x, map_y)){
+    player->pos = add(player->pos, player->vel);
+  }
+
+  printf("POS = (%lu, %lu) DIR = (%f, %f) VEL(%f, %f) COLL = %d\n", map_x, map_y, player->dir.x, player->dir.y, player->vel.x, player->vel.y, !get_map_value(map, map_x, map_y));
   player->dir = rotate(player->dir, player->a_vel * delta_time);
   player->angle += player->a_vel;
 
