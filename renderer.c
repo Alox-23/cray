@@ -33,7 +33,7 @@ void render_map_2d(Renderer *renderer, Map *map){
         map->rect.y = y * renderer->scale_2d;
         map->rect.w = renderer->scale_2d;
         map->rect.h = renderer->scale_2d;
-        SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 255, 0, 255);
+        SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 100*map_val, 0, 255);
         SDL_RenderDrawRect(renderer->sdl_renderer, &map->rect);
       }
     }

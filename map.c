@@ -6,7 +6,12 @@ static void add_texture(Map* map, const char *str){
     printf("Error adding texture value to map");
     return;
   }
-
+  
+  if (map->texture_index >= map->texture_count){
+    printf("Error adding texture value to map - maximum texture count execded!");
+    return;
+  }
+  
   map->textures[map->texture_index] = strdup(str);
   if (map->textures[map->texture_index]){
     map->texture_index++;
@@ -49,7 +54,8 @@ Map* init_map(size_t width, size_t height, size_t texture_count){
   for (size_t y = 0; y < map->height; y++){
     for (size_t x = 0; x < map->width; x++){
       if (y == 0 || y == map->height-1 || x == 0 || x == map->width-1){
-        set_map_value(map, x, y, 1);
+        if (y == 0) set_map_value(map, x, y, 1);
+        else set_map_value(map, x, y, 2);
       }
       else {
         set_map_value(map, x, y, 0);
@@ -90,16 +96,21 @@ const char* get_texture(Map *map, size_t texture_index){
   return map->textures[texture_index];
 }
 
-//free that array that was created in init_ma
-void clean_map(Map *map){
+void destroy_map(Map *map){
   if (map != NULL){
+    printf("\nGame Map:\n");
+    for (size_t y = 0; y < map->height; y++){
+      for (size_t x = 0; x < map->width; x++){
+        printf("%i ", get_map_value(map, x, y)); 
+      }
+      printf("\n");
+    }
+  
     free(map->textures);
     map->textures = NULL;
     free(map->buffer);
     map->buffer = NULL;
     free(map);
     map = NULL;
-    map->height = 0;
-    map->width = 0;
   }
 }

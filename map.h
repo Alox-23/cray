@@ -23,6 +23,6 @@ Map* init_map(size_t width, size_t height, size_t texture_count);
 const char* get_texture(Map *map, size_t texture_index);
 int get_map_value(Map *mapArray, size_t x, size_t y);
 void set_map_value(Map *map, size_t x, size_t y, int value); 
-void clean_map(Map *mapArray);
+void destroy_map(Map *mapArray);
 
 #endif

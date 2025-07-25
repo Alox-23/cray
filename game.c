@@ -31,6 +31,7 @@ void update_game(Game *game){
 void cleanup(Game *game, int exit_status){
   destroy_renderer(game->renderer);
   destroy_player(game->player);
+  destroy_map(game->map);;
   SDL_Quit();
   free(game);
   game = NULL;
