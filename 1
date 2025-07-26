@@ -1,0 +1,62 @@
+#include "texturemanager.h"
+#include <stdio.h>
+
+TextureManager* init_TextureManager(int num_textures){
+  TextureManager* texture_manager = malloc(sizeof(TextureManager));
+  if (!texture_manager){
+    printf("failed to dynamicly alocate space for TextureManager\n");
+    return NULL;
+  }
+  
+  texture_manager->textures = malloc(sizeof(int) * num_textures);
+  texture_manager->texture_capacity = num_textures;
+  texture_manager->texture_count = 0;
+
+  if (!texture_manager->textures){
+    printf("failed to dynamicly allocate space for TextureManager->textures\n");
+    return NULL;
+  }
+
+  return texture_manager;
+}
+
+void destroy_TextureManager(TextureManager *texture_manager){
+  free(texture_manager->textures);
+  texture_manager->textures = NULL;
+  free(texture_manager);
+  texture_manager = NULL;
+}
+
+int add_texture_TextureManager(TextureManager* texture_manager, int texture){
+  if (texture_manager->texture_count >= texture_manager->texture_capacity){
+    printf("too manny textures loaded! couldn add texture to texture_manager texture_manager capacity: %i/%i", texture_manager->texture_count, texture_manager->texture_capacity);
+    return -1;
+  }
+
+  texture_manager->textures[texture_manager->texture_count] = texture;
+  texture_manager->texture_count++;
+
+  return texture_manager->texture_count-1;
+}
+
+int get_texture_TextureManager(TextureManager* texture_manager, int texture_id){
+  return texture_manager->textures[texture_id];
+}
+
+void remove_texture_TextureManager(TextureManager* texture_manager, int texture_id){
+  return; 
+}
+
+int main(){
+  TextureManager* tm = init_TextureManager(5);
+
+  int id1 = add_texture_TextureManager(tm, 50);
+  int id2 = add_texture_TextureManager(tm, 50);
+  int id3 = add_texture_TextureManager(tm, 50);
+  int id4 = add_texture_TextureManager(tm, 50);
+  int id5 = add_texture_TextureManager(tm, 50);
+  int id6 = add_texture_TextureManager(tm, 50);
+  printf("texture with id: %i has value of: %i", id1, get_texture_TextureManager(tm, id1));
+
+  destroy_TextureManager(tm);  
+}
