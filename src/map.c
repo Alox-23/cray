@@ -1,4 +1,4 @@
-#include "map.h"
+#include "../include/map.h"
 #include <stdio.h>
 
 static void add_texture(Map* map, const char *str){

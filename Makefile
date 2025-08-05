@@ -5,7 +5,7 @@ SRC = src/main.c src/input.c src/game.c src/map.c src/renderer.c src/utils.c src
 LIBS = `sdl2-config --cflags --libs` -lSDL2_image -lSDL2_ttf -lm 
 
 all:
-	$(CC) -Iinclude $(FLAGS) -o $(TARGET) $(SRC) $(LIBS)
+	$(CC) $(FLAGS) -o $(TARGET) $(SRC) $(LIBS)
 	./$(TARGET)
 
 install:

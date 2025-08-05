@@ -1,5 +1,5 @@
-#include "input.h"
-#include "player.h"
+#include "../include/input.h"
+#include "../include/player.h"
 
 void input_poll(Game *game){
   SDL_Event event;

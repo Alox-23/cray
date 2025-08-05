@@ -1,5 +1,5 @@
-#include "game.h"
-#include "player.h"
+#include "../include/game.h"
+#include "../include/player.h"
 
 Game* init_game(){
   Game* game = malloc(sizeof(Game));

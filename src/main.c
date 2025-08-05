@@ -1,11 +1,9 @@
 #include <SDL2/SDL.h>
-#include <stdio.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include "game.h"
-#include "map.h"
-#include "input.h"
-#include "renderer.h"
+#include "../include/game.h"
+#include "../include/input.h"
+#include "../include/renderer.h"
 
 int main (){
   Game* game = init_game();

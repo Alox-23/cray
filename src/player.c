@@ -1,5 +1,5 @@
-#include "player.h"
-#include "utils.h"
+#include "../include/player.h"
+#include "../include/utils.h"
 
 Player* init_player(){
   Player* p = malloc(sizeof(Player));

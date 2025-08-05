@@ -1,4 +1,4 @@
-#include "utils.h"
+#include "../include/utils.h"
 #include <math.h>
 
 Vector2 normalize(Vector2 v){

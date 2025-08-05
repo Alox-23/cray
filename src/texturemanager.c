@@ -1,4 +1,4 @@
-#include "texturemanager.h"
+#include "../include/texturemanager.h"
 #include <stdio.h>
 
 TextureManager* init_TextureManager(int num_textures){

@@ -1,6 +1,6 @@
-#include "renderer.h"
-#include "player.h"
-#include "map.h"
+#include "../include/renderer.h"
+#include "../include/player.h"
+#include "../include/map.h"
 
 Renderer* init_renderer(){
   Renderer* renderer = malloc(sizeof(Renderer));
