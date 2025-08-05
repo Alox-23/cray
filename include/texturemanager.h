@@ -8,11 +8,11 @@
 
 typedef struct{
   SDL_Texture** textures;
-  size_t texture_capacity;
-  size_t texture_count;
+  int texture_capacity;
+  int texture_count;
 }TextureManager;
 
-TextureManager* init_TextureManager(int num_textures);
+TextureManager* init_TextureManager(int num_textures, SDL_Renderer* renderer);
 int add_texture_TextureManager(TextureManager* texture_manager, SDL_Renderer* renderer, const char* texture_path);
 void remove_texture_TextureManager(TextureManager* texture_manager, int texutre_id);
 void destroy_TextureManager(TextureManager* texture_manager);

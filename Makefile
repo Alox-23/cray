@@ -8,5 +8,9 @@ all:
 	$(CC) $(FLAGS) -o $(TARGET) $(SRC) $(LIBS)
 	./$(TARGET)
 
+test:
+	$(CC) $(FLAGS) -o bin/test src/texturemanager.c $(LIBS)
+	./bin/test
+
 install:
 	sudo apt install libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev libsdl2-net-dev
