@@ -7,9 +7,9 @@ Renderer* init_Renderer(){
   Renderer* renderer = malloc(sizeof(Renderer));
   if (!renderer) return NULL;
   
-  renderer->scale_2d = 30;
-  renderer->width = 600;
-  renderer->height = 300;
+  renderer->scale_2d = 10;
+  renderer->width = 1200;
+  renderer->height = 600;
   
   renderer->window = SDL_CreateWindow("SDL2 hello world", 100, 100, renderer->width, renderer->height, SDL_WINDOW_SHOWN);
   if(!renderer->window){
@@ -23,7 +23,7 @@ Renderer* init_Renderer(){
     return NULL;
   }
 
-  renderer->texture_manager = init_TextureManager(5, renderer->sdl_renderer);
+  renderer->texture_manager = init_TextureManager(5, renderer->sdl_renderer, 100, 50);
   if (!renderer->texture_manager){
     return NULL;
   }
@@ -38,16 +38,17 @@ Renderer* init_Renderer(){
 }
 
 void render_map_2d_Renderer(Renderer *renderer, Map *map){
+  SDL_Rect rect;
   for (size_t y = 0; y < map->height; y++){
     for (size_t x = 0; x < map->width; x++){
       int map_val = get_map_value(map, x, y);
       if (map_val){
-        map->rect.x = x * renderer->scale_2d;
-        map->rect.y = y * renderer->scale_2d;
-        map->rect.w = renderer->scale_2d;
-        map->rect.h = renderer->scale_2d;
+        rect.x = x * renderer->texture_manager->texture_width;
+        rect.y = y * renderer->texture_manager->texture_height;
+        rect.w = renderer->texture_manager->texture_width;
+        rect.h = renderer->texture_manager->texture_height;
 
-        SDL_RenderCopy(renderer->sdl_renderer, get_texture_TextureManager(renderer->texture_manager, map_val), NULL, &map->rect);
+        SDL_RenderCopy(renderer->sdl_renderer, get_texture_TextureManager(renderer->texture_manager, map_val), NULL, &rect);
 
         //SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 100*map_val, 0, 255);
         //SDL_RenderDrawRect(renderer->sdl_renderer, &map->rect);
@@ -82,8 +83,8 @@ void render_Renderer(Renderer *renderer, Player *player, Map *map){
   SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer->sdl_renderer);
 
-  render_player_2d_Renderer(renderer, player);
   render_map_2d_Renderer(renderer, map);
+  render_player_2d_Renderer(renderer, player);
   SDL_RenderPresent(renderer->sdl_renderer);
 }
 

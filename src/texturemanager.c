@@ -1,13 +1,25 @@
 #include "../include/texturemanager.h"
+#include <SDL2/SDL_blendmode.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_pixels.h>
+#include <SDL2/SDL_render.h>
+#include <stdio.h>
 
-TextureManager* init_TextureManager(int num_textures, SDL_Renderer* renderer){
+TextureManager* init_TextureManager(int num_textures, SDL_Renderer* renderer, int texture_width, int texture_height){
   TextureManager* texture_manager = malloc(sizeof(TextureManager));
-  if (!texture_manager || num_textures < 0){
+  if (!texture_manager){
     printf("failed to dynamicly alocate space for TextureManager\n");
     return NULL;
   }
+
+  if (num_textures <= 0 || texture_height <= 0 || texture_width <= 0){
+    printf("Invalid parameters to init_TextureManager (has to be > 0)");
+    return NULL;
+  }
+
+  texture_manager->texture_width = texture_width;
+  texture_manager->texture_height = texture_height;
  
   texture_manager->textures = calloc(num_textures+1, sizeof(SDL_Texture*));
   if (!texture_manager->textures){
@@ -72,14 +84,29 @@ int add_texture_TextureManager(TextureManager* texture_manager, SDL_Renderer* re
     return 0;
   }
 
-  SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-  if (!texture){
+  SDL_Texture* original_texture = SDL_CreateTextureFromSurface(renderer, surface);
+  if (!original_texture){
     printf("Error loading texture, SDL_Error: %s\n", IMG_GetError());
     return 0;
   }
 
+  SDL_Texture* resized_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, texture_manager->texture_width, texture_manager->texture_height);
+
+  SDL_SetRenderTarget(renderer, resized_texture);
+  SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+  SDL_RenderClear(renderer);
+
+  SDL_Rect dest_rect = {0, 0, texture_manager->texture_width, texture_manager->texture_height};
+
+  SDL_RenderCopy(renderer, original_texture, NULL, &dest_rect);
+
+  SDL_SetRenderTarget(renderer, NULL);
+
   texture_manager->texture_count+=1;
-  texture_manager->textures[texture_manager->texture_count] = texture;
+  texture_manager->textures[texture_manager->texture_count] = resized_texture;
+
+  SDL_DestroyTexture(original_texture);
 
   return texture_manager->texture_count;
 }

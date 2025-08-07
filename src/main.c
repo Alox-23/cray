@@ -9,8 +9,15 @@ int main (){
   Game* game = init_game();
   if (!game) cleanup(game, EXIT_FAILURE);
   
+  Uint32 a;
+  Uint32 b;
+  
+  Uint32 total = 0;
+  Uint32 count = 0;
+
   Uint32 last_time = SDL_GetTicks();
   while(game->state){
+    a = SDL_GetTicks();
     Uint32 current_time = SDL_GetTicks();
     game->delta_time = (current_time- last_time) / 1000.0f;
     last_time = current_time;
@@ -18,8 +25,14 @@ int main (){
     input_poll(game);
     update_game(game);
     render_Renderer(game->renderer, game->player, game->map);
-    usleep(16000);
+    
+    b=SDL_GetTicks();
+    total = total + (b-a);
+    count++;
+    printf("\nTime for this frame, total time, number of frames: %i, %i, %i\n", b - a, total, count);
+    //usleep(16000);
   }
+  printf("AVG time per frame, total time, number of frames: %i, %i, %i\n", total/count, total, count);
   cleanup(game, EXIT_SUCCESS);
   return 0;
 }
