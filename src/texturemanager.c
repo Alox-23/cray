@@ -96,6 +96,10 @@ SDL_Texture* get_texture_TextureManager(TextureManager* texture_manager, int tex
   if (texture_id < 0){
     return texture_manager->textures[0];
   }
+
+  if (!texture_manager->textures[texture_id]){
+    return texture_manager->textures[0];
+  }
  
   return texture_manager->textures[texture_id];
 }

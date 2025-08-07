@@ -1,24 +1,6 @@
 #include "../include/map.h"
 #include <stdio.h>
 
-static void add_texture(Map* map, const char *str){
-  if (!map){
-    printf("Error adding texture value to map");
-    return;
-  }
-  
-  if (map->texture_index >= map->texture_count){
-    printf("Error adding texture value to map - maximum texture count execded!");
-    return;
-  }
-  
-  map->textures[map->texture_index] = strdup(str);
-  if (map->textures[map->texture_index]){
-    map->texture_index++;
-  }
-}
-
-
 //impure function that create a contiguous array of size width * height modifies a maps buffer array probably declared in main.c
 Map* init_map(size_t width, size_t height, size_t texture_count){
   Map* map = malloc(sizeof(Map));  
@@ -33,20 +15,8 @@ Map* init_map(size_t width, size_t height, size_t texture_count){
     return NULL;
   }
   
-  map->textures = malloc(sizeof(char*) * texture_count);
-  if (!map->textures){
-    free(map->buffer);
-    map->buffer = NULL;
-    free(map);
-    map = NULL;
-    return NULL;
-  }
-  
   map->texture_index = 0;
   map->texture_count = texture_count;
-  
-  add_texture(map, "brick");
-  add_texture(map, "wall");
   
   map->height = height;
   map->width = width;
@@ -87,15 +57,6 @@ void set_map_value(Map *map, size_t x, size_t y, int value){
   map->buffer[y * map->width + x] = value;
 }
 
-const char* get_texture(Map *map, size_t texture_index){
-  if (!map || texture_index >= map->texture_index){
-    printf("Failed to fetch texture from map structure"); 
-    return NULL;
-  }
-
-  return map->textures[texture_index];
-}
-
 void destroy_map(Map *map){
   if (map != NULL){
     printf("\nGame Map:\n");
@@ -105,9 +66,7 @@ void destroy_map(Map *map){
       }
       printf("\n");
     }
-  
-    free(map->textures);
-    map->textures = NULL;
+    
     free(map->buffer);
     map->buffer = NULL;
     free(map);

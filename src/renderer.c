@@ -1,14 +1,16 @@
 #include "../include/renderer.h"
 #include "../include/player.h"
 #include "../include/map.h"
+#include "../include/texturemanager.h"
 
-Renderer* init_renderer(){
+Renderer* init_Renderer(){
   Renderer* renderer = malloc(sizeof(Renderer));
   if (!renderer) return NULL;
   
   renderer->scale_2d = 30;
   renderer->width = 600;
   renderer->height = 300;
+  
   renderer->window = SDL_CreateWindow("SDL2 hello world", 100, 100, renderer->width, renderer->height, SDL_WINDOW_SHOWN);
   if(!renderer->window){
     printf("SDL_CreateWindow error: %s\n", SDL_GetError());
@@ -21,10 +23,21 @@ Renderer* init_renderer(){
     return NULL;
   }
 
+  renderer->texture_manager = init_TextureManager(5, renderer->sdl_renderer);
+  if (!renderer->texture_manager){
+    return NULL;
+  }
+
+  add_texture_TextureManager(renderer->texture_manager, renderer->sdl_renderer, "assets/texture.jpeg");
+  add_texture_TextureManager(renderer->texture_manager, renderer->sdl_renderer, "assets/texture2.jpeg");
+  add_texture_TextureManager(renderer->texture_manager, renderer->sdl_renderer, "assets/texture3.png");
+  add_texture_TextureManager(renderer->texture_manager, renderer->sdl_renderer, "assets/texture4.jpeg");
+  add_texture_TextureManager(renderer->texture_manager, renderer->sdl_renderer, "assets/texture5.jpeg");
+  
   return renderer;
 }
 
-void render_map_2d(Renderer *renderer, Map *map){
+void render_map_2d_Renderer(Renderer *renderer, Map *map){
   for (size_t y = 0; y < map->height; y++){
     for (size_t x = 0; x < map->width; x++){
       int map_val = get_map_value(map, x, y);
@@ -33,15 +46,18 @@ void render_map_2d(Renderer *renderer, Map *map){
         map->rect.y = y * renderer->scale_2d;
         map->rect.w = renderer->scale_2d;
         map->rect.h = renderer->scale_2d;
-        SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 100*map_val, 0, 255);
-        SDL_RenderDrawRect(renderer->sdl_renderer, &map->rect);
+
+        SDL_RenderCopy(renderer->sdl_renderer, get_texture_TextureManager(renderer->texture_manager, map_val), NULL, &map->rect);
+
+        //SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 100*map_val, 0, 255);
+        //SDL_RenderDrawRect(renderer->sdl_renderer, &map->rect);
       }
     }
   }
  
 }
 
-void render_player_2d(Renderer *renderer, Player *player){
+void render_player_2d_Renderer(Renderer *renderer, Player *player){
   if (!renderer || !player){
     printf("Wrong player or renderer pointer parameter inside render_player_2d\n");
     return;
@@ -62,18 +78,19 @@ void render_player_2d(Renderer *renderer, Player *player){
   SDL_RenderDrawLine(renderer->sdl_renderer, line_start_x, line_start_y, line_end_x, line_end_y);
 }
 
-void render(Renderer *renderer, Player *player, Map *map){
+void render_Renderer(Renderer *renderer, Player *player, Map *map){
   SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer->sdl_renderer);
 
-  render_player_2d(renderer, player);
-  render_map_2d(renderer, map);
+  render_player_2d_Renderer(renderer, player);
+  render_map_2d_Renderer(renderer, map);
   SDL_RenderPresent(renderer->sdl_renderer);
 }
 
-void destroy_renderer(Renderer *renderer){
+void destroy_Renderer(Renderer *renderer){
   SDL_DestroyWindow(renderer->window);
   SDL_DestroyRenderer(renderer->sdl_renderer);
+  destroy_TextureManager(renderer->texture_manager);
   free(renderer);
   renderer = NULL;
 }

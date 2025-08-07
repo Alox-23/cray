@@ -7,7 +7,7 @@ Game* init_game(){
 
   if (SDL_Init(SDL_INIT_EVERYTHING)) return NULL;  
  
-  game->renderer = init_renderer();
+  game->renderer = init_Renderer();
   if (!game->renderer) return NULL;
 
   game->player = init_player();
@@ -29,9 +29,9 @@ void update_game(Game *game){
 }
 
 void cleanup(Game *game, int exit_status){
-  destroy_renderer(game->renderer);
+  destroy_Renderer(game->renderer);
   destroy_player(game->player);
-  destroy_map(game->map);;
+  destroy_map(game->map);
   SDL_Quit();
   free(game);
   game = NULL;
