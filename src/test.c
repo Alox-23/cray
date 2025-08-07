@@ -62,7 +62,7 @@ int main(){
     }
 
     // Create texture manager
-    TextureManager* tm = init_TextureManager(5, renderer);
+    TextureManager* tm = init_TextureManager(5, renderer, 32, 32);
     if (!tm) {
         printf("Failed to create texture manager\n");
         SDL_DestroyRenderer(renderer);
@@ -117,7 +117,7 @@ int main(){
                 SDL_RenderCopy(renderer, tex, NULL, &dst);
 
                 char id_text[32];
-                snprintf(id_text, sizeof(id_text), "ID: %d", i);
+                snprintf(id_text, sizeof(id_text), "%d", i);
 
                 if (font) {
                   SDL_Surface* text_surface = TTF_RenderText_Solid(font, id_text, white);

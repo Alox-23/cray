@@ -15,6 +15,8 @@ TextureManager* init_TextureManager(int num_textures, SDL_Renderer* renderer, in
 
   if (num_textures <= 0 || texture_height <= 0 || texture_width <= 0){
     printf("Invalid parameters to init_TextureManager (has to be > 0)");
+    free(texture_manager);
+    texture_manager = NULL;
     return NULL;
   }
 
@@ -24,22 +26,41 @@ TextureManager* init_TextureManager(int num_textures, SDL_Renderer* renderer, in
   texture_manager->textures = calloc(num_textures+1, sizeof(SDL_Texture*));
   if (!texture_manager->textures){
     printf("failed to dynamicly allocate space for TextureManager->textures\n");
+    destroy_TextureManager(texture_manager);
     return NULL;
   }
   
+  
   SDL_Surface* surface = IMG_Load("assets/default.png");
   if (!surface){
-    printf("Error loading img, SDL_Error : %s\n", IMG_GetError());
-    return 0;
+    printf("Error loading img SDL_Error : %s\n", IMG_GetError());
+    destroy_TextureManager(texture_manager);
+    return NULL;
   }
 
-  SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-  if (!texture){
+  SDL_Texture* original_texture = SDL_CreateTextureFromSurface(renderer, surface);
+  if (!original_texture){
     printf("Error loading texture, SDL_Error: %s\n", IMG_GetError());
-    return 0;
+    destroy_TextureManager(texture_manager);
+    return NULL;
   }
 
-  texture_manager->textures[0] = texture;
+  SDL_Texture* resized_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, texture_manager->texture_width, texture_manager->texture_height);
+
+  SDL_SetRenderTarget(renderer, resized_texture);
+  SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+  SDL_RenderClear(renderer);
+
+  SDL_Rect dest_rect = {0, 0, texture_manager->texture_width, texture_manager->texture_height};
+
+  SDL_RenderCopy(renderer, original_texture, NULL, &dest_rect);
+
+  SDL_SetRenderTarget(renderer, NULL);
+
+  texture_manager->textures[0] = resized_texture;
+
+  SDL_DestroyTexture(original_texture);
 
   texture_manager->texture_capacity = num_textures;
   texture_manager->texture_count = 0;

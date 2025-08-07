@@ -8,6 +8,12 @@ all:
 	$(CC) $(FLAGS) -o $(TARGET) $(SRC) $(LIBS)
 	./$(TARGET)
 
+comp:
+	$(CC) $(FLAGS) -o $(TARGET) $(SRC) $(LIBS)
+	
+run:
+	./$(TARGET)
+
 test:
 	$(CC) $(FLAGS) -o bin/test src/texturemanager.c src/test.c $(LIBS)
 	./bin/test

@@ -23,7 +23,7 @@ Renderer* init_Renderer(){
     return NULL;
   }
 
-  renderer->texture_manager = init_TextureManager(5, renderer->sdl_renderer, 100, 50);
+  renderer->texture_manager = init_TextureManager(5, renderer->sdl_renderer, 5, 5);
   if (!renderer->texture_manager){
     return NULL;
   }
@@ -38,6 +38,11 @@ Renderer* init_Renderer(){
 }
 
 void render_map_2d_Renderer(Renderer *renderer, Map *map){
+  if (!renderer || !map){
+    printf("worng renderer or map parameter in render_map2d_Renderer");
+    return;
+  }
+
   SDL_Rect rect;
   for (size_t y = 0; y < map->height; y++){
     for (size_t x = 0; x < map->width; x++){
@@ -83,7 +88,7 @@ void render_Renderer(Renderer *renderer, Player *player, Map *map){
   SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer->sdl_renderer);
 
-  render_map_2d_Renderer(renderer, map);
+  //render_map_2d_Renderer(renderer, map);
   render_player_2d_Renderer(renderer, player);
   SDL_RenderPresent(renderer->sdl_renderer);
 }
