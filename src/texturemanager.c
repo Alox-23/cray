@@ -13,6 +13,9 @@ TextureManager* init_TextureManager(int num_textures, SDL_Renderer* renderer, in
     return NULL;
   }
 
+  texture_manager->texture_capacity = num_textures;
+  texture_manager->texture_count = 0;
+ 
   if (num_textures <= 0 || texture_height <= 0 || texture_width <= 0){
     printf("Invalid parameters to init_TextureManager (has to be > 0)");
     free(texture_manager);
@@ -62,8 +65,6 @@ TextureManager* init_TextureManager(int num_textures, SDL_Renderer* renderer, in
 
   SDL_DestroyTexture(original_texture);
 
-  texture_manager->texture_capacity = num_textures;
-  texture_manager->texture_count = 0;
   return texture_manager;
 }
 
