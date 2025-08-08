@@ -13,7 +13,7 @@ Game* init_game(){
   game->player = init_player();
   if (!game->player) return NULL;
   
-  game->map = init_map(100, 100);
+  game->map = init_map(10, 10);
   if (!game->map) return NULL;
 
   game->keystate = SDL_GetKeyboardState(NULL);
@@ -29,6 +29,10 @@ void update_game(Game *game){
 }
 
 void cleanup(Game *game, int exit_status){
+  if (!game){
+    return;
+  }
+
   destroy_Renderer(game->renderer);
   destroy_player(game->player);
   destroy_map(game->map);

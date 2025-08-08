@@ -56,8 +56,7 @@ void destroy_player(Player* p){
   if (!p){
     return;
   }
-  else{
-    free(p);
-    p = NULL;
-  }
+  
+  free(p);
+  p = NULL;
 }

@@ -10,8 +10,6 @@ Map* init_map(size_t width, size_t height){
    
   map->buffer = malloc(sizeof(int) * height * width); 
   if (!map->buffer){
-    free(map);
-    map = NULL;
     return NULL;
   }
   
@@ -20,13 +18,13 @@ Map* init_map(size_t width, size_t height){
 
   for (size_t y = 0; y < map->height; y++){
     for (size_t x = 0; x < map->width; x++){
-      set_map_value(map, x, y, (y/(height/5))+1);
-      //if (y == 0 || y == map->height-1 || x == 0 || x == map->width-1){
-      //  set_map_value(map, x, y, (y/2)+1);
-      //}
-      //else {
-      //  set_map_value(map, x, y, 0);
-      //}
+      //set_map_value(map, x, y, (y/(height/5))+1);
+      if (y == 0 || y == map->height-1 || x == 0 || x == map->width-1){
+        set_map_value(map, x, y, (y/2)+1);
+      }
+      else {
+        set_map_value(map, x, y, 0);
+      }
     } 
   }
    
@@ -48,10 +46,12 @@ void set_map_value(Map *map, size_t x, size_t y, int value){
 }
 
 void destroy_map(Map *map){
-  if (map != NULL){
-    free(map->buffer);
-    map->buffer = NULL;
-    free(map);
-    map = NULL;
+  if (!map){
+    return;
   }
+
+  free(map->buffer);
+  map->buffer = NULL;
+  free(map);
+  map = NULL;
 }

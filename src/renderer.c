@@ -7,9 +7,9 @@ Renderer* init_Renderer(){
   Renderer* renderer = malloc(sizeof(Renderer));
   if (!renderer) return NULL;
   
-  renderer->scale_2d = 10;
-  renderer->width = 1200;
-  renderer->height = 600;
+  renderer->scale_2d = 20;
+  renderer->width = 400;
+  renderer->height = 200;
   
   renderer->window = SDL_CreateWindow("SDL2 hello world", 100, 100, renderer->width, renderer->height, SDL_WINDOW_SHOWN);
   if(!renderer->window){
@@ -23,7 +23,7 @@ Renderer* init_Renderer(){
     return NULL;
   }
 
-  renderer->texture_manager = init_TextureManager(5, renderer->sdl_renderer, 5, 5);
+  renderer->texture_manager = init_TextureManager(5, renderer->sdl_renderer, 20, 20);
   if (!renderer->texture_manager){
     return NULL;
   }
@@ -88,12 +88,16 @@ void render_Renderer(Renderer *renderer, Player *player, Map *map){
   SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer->sdl_renderer);
 
-  //render_map_2d_Renderer(renderer, map);
+  render_map_2d_Renderer(renderer, map);
   render_player_2d_Renderer(renderer, player);
   SDL_RenderPresent(renderer->sdl_renderer);
 }
 
 void destroy_Renderer(Renderer *renderer){
+  if(!renderer){
+    return;
+  }
+
   SDL_DestroyWindow(renderer->window);
   SDL_DestroyRenderer(renderer->sdl_renderer);
   destroy_TextureManager(renderer->texture_manager);
