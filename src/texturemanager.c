@@ -18,8 +18,6 @@ TextureManager* init_TextureManager(int num_textures, SDL_Renderer* renderer, in
  
   if (num_textures <= 0 || texture_height <= 0 || texture_width <= 0){
     printf("Invalid parameters to init_TextureManager (has to be > 0)");
-    free(texture_manager);
-    texture_manager = NULL;
     return NULL;
   }
 
@@ -29,7 +27,6 @@ TextureManager* init_TextureManager(int num_textures, SDL_Renderer* renderer, in
   texture_manager->textures = calloc(num_textures+1, sizeof(SDL_Texture*));
   if (!texture_manager->textures){
     printf("failed to dynamicly allocate space for TextureManager->textures\n");
-    destroy_TextureManager(texture_manager);
     return NULL;
   }
   
@@ -37,14 +34,12 @@ TextureManager* init_TextureManager(int num_textures, SDL_Renderer* renderer, in
   SDL_Surface* surface = IMG_Load("assets/default.png");
   if (!surface){
     printf("Error loading img SDL_Error : %s\n", IMG_GetError());
-    destroy_TextureManager(texture_manager);
     return NULL;
   }
 
   SDL_Texture* original_texture = SDL_CreateTextureFromSurface(renderer, surface);
   if (!original_texture){
     printf("Error loading texture, SDL_Error: %s\n", IMG_GetError());
-    destroy_TextureManager(texture_manager);
     return NULL;
   }
 
