@@ -16,10 +16,10 @@ typedef struct{
   TextureManager* texture_manager;
 }Renderer;
 
-Renderer* init_Renderer();
-void render_player_2d_Renderer(Renderer *renderer, Player *player);
-void render_map_2d_Renderer(Renderer *renderer, Map *map);
-void render_Renderer(Renderer *renderer, Player *player, Map *map);
-void destroy_Renderer(Renderer *renderer);
+Renderer* renderer_create();
+void renderer_render_player_2d(Renderer *renderer, Player *player);
+void renderer_render_map_2d(Renderer *renderer, Map *map);
+void renderer_render(Renderer *renderer, Player *player, Map *map);
+void renderer_destroy(Renderer *renderer);
 
 #endif

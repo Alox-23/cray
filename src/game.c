@@ -1,19 +1,19 @@
 #include "../include/game.h"
 #include "../include/player.h"
 
-Game* init_game(){
+Game* game_create(){
   Game* game = malloc(sizeof(Game));
   if (!game) return NULL;
 
   if (SDL_Init(SDL_INIT_EVERYTHING)) return NULL;  
  
-  game->renderer = init_Renderer();
+  game->renderer = renderer_create();
   if (!game->renderer) return NULL;
 
-  game->player = init_player();
+  game->player = player_create();
   if (!game->player) return NULL;
   
-  game->map = init_map(10, 10);
+  game->map = map_create(10, 10);
   if (!game->map) return NULL;
 
   game->keystate = SDL_GetKeyboardState(NULL);
@@ -24,18 +24,18 @@ Game* init_game(){
   return game;
 }
 
-void update_game(Game *game){
-  update_player(game->player, game->delta_time);
+void game_update(Game *game){
+  player_update(game->player, game->delta_time);
 }
 
-void cleanup(Game *game, int exit_status){
+void game_destroy(Game *game, int exit_status){
   if (!game){
     return;
   }
 
-  destroy_Renderer(game->renderer);
-  destroy_player(game->player);
-  destroy_map(game->map);
+  renderer_destroy(game->renderer);
+  player_destroy(game->player);
+  map_destroy(game->map);
   SDL_Quit();
   free(game);
   game = NULL;

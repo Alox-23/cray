@@ -17,8 +17,8 @@ typedef struct{
   int state;
 }Game;
 
-void cleanup(Game *game, int exit_status);
-void update_game(Game *game);
-Game* init_game(); 
+void game_destroy(Game *game, int exit_status);
+void game_update(Game *game);
+Game* game_create(); 
 
 #endif

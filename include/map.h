@@ -14,9 +14,9 @@ typedef struct{
 }Map;
 
 //impure function modifies struct of type MapArray that is probably decalred in main.
-Map* init_map(size_t width, size_t height);
-int get_map_value(Map *mapArray, size_t x, size_t y);
-void set_map_value(Map *map, size_t x, size_t y, int value); 
-void destroy_map(Map *mapArray);
+Map* map_create(size_t width, size_t height);
+int map_get_value(Map *mapArray, size_t x, size_t y);
+void map_set_value(Map *map, size_t x, size_t y, int value); 
+void map_destroy(Map *mapArray);
 
 #endif

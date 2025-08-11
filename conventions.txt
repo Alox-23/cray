@@ -1,0 +1,6 @@
+Here are the naming conventions for this project:
+
+structs: ExampleSubsystem
+functions: example_subsystem_init()
+variables: example_variable
+constants:  EXAMPLE_CONSTANT

@@ -6,7 +6,7 @@
 #include <SDL2/SDL_render.h>
 #include <stdio.h>
 
-TextureManager* init_TextureManager(int num_textures, SDL_Renderer* renderer, int texture_width, int texture_height){
+TextureManager* texturemanager_create(int num_textures, SDL_Renderer* renderer, int texture_width, int texture_height){
   TextureManager* texture_manager = malloc(sizeof(TextureManager));
   if (!texture_manager){
     printf("failed to dynamicly alocate space for TextureManager\n");
@@ -63,23 +63,7 @@ TextureManager* init_TextureManager(int num_textures, SDL_Renderer* renderer, in
   return texture_manager;
 }
 
-void destroy_TextureManager(TextureManager *texture_manager){
-  if (!texture_manager){
-    return;
-  }
-
-  for (int i = 0; i < texture_manager->texture_count; i++){
-    if (texture_manager->textures[i]){
-      SDL_DestroyTexture(texture_manager->textures[i]);
-    }
-  }
-  free(texture_manager->textures);
-  texture_manager->textures = NULL;
-  free(texture_manager);
-  texture_manager = NULL;
-}
-
-int add_texture_TextureManager(TextureManager* texture_manager, SDL_Renderer* renderer, const char* texture_path){
+int texturemanager_add_texture(TextureManager* texture_manager, SDL_Renderer* renderer, const char* texture_path){
   if (!texture_manager){
     printf("invalid texture_manager\n");
     return 0;
@@ -128,7 +112,7 @@ int add_texture_TextureManager(TextureManager* texture_manager, SDL_Renderer* re
   return texture_manager->texture_count;
 }
 
-SDL_Texture* get_texture_TextureManager(TextureManager* texture_manager, int texture_id){
+SDL_Texture* texturemanager_get_texture(TextureManager* texture_manager, int texture_id){
   if (!texture_manager){
     printf("invalid texture_manager\n");
     return NULL; 
@@ -148,7 +132,25 @@ SDL_Texture* get_texture_TextureManager(TextureManager* texture_manager, int tex
   return texture_manager->textures[texture_id];
 }
 
-void remove_texture_TextureManager(TextureManager* texture_manager, int texture_id){
+void texturemanager_remove_texture(TextureManager* texture_manager, int texture_id){
   SDL_DestroyTexture(texture_manager->textures[texture_id]);
   texture_manager->textures[texture_id] = NULL;
 }
+
+void texturemanager_destroy(TextureManager *texture_manager){
+  if (!texture_manager){
+    return;
+  }
+
+  for (int i = 0; i < texture_manager->texture_count; i++){
+    if (texture_manager->textures[i]){
+      SDL_DestroyTexture(texture_manager->textures[i]);
+    }
+  }
+  free(texture_manager->textures);
+  texture_manager->textures = NULL;
+  free(texture_manager);
+  texture_manager = NULL;
+}
+
+

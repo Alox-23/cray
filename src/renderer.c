@@ -3,7 +3,7 @@
 #include "../include/map.h"
 #include "../include/texturemanager.h"
 
-Renderer* init_Renderer(){
+Renderer* renderer_create(){
   Renderer* renderer = malloc(sizeof(Renderer));
   if (!renderer) return NULL;
   
@@ -23,21 +23,21 @@ Renderer* init_Renderer(){
     return NULL;
   }
 
-  renderer->texture_manager = init_TextureManager(5, renderer->sdl_renderer, 20, 20);
+  renderer->texture_manager = texturemanager_create(5, renderer->sdl_renderer, 20, 20);
   if (!renderer->texture_manager){
     return NULL;
   }
 
-  add_texture_TextureManager(renderer->texture_manager, renderer->sdl_renderer, "assets/texture.jpeg");
-  add_texture_TextureManager(renderer->texture_manager, renderer->sdl_renderer, "assets/texture2.jpeg");
-  add_texture_TextureManager(renderer->texture_manager, renderer->sdl_renderer, "assets/texture3.png");
-  add_texture_TextureManager(renderer->texture_manager, renderer->sdl_renderer, "assets/texture4.jpeg");
-  add_texture_TextureManager(renderer->texture_manager, renderer->sdl_renderer, "assets/texture5.jpeg");
+  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/texture.jpeg");
+  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/texture2.jpeg");
+  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/texture3.png");
+  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/texture4.jpeg");
+  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/texture5.jpeg");
   
   return renderer;
 }
 
-void render_map_2d_Renderer(Renderer *renderer, Map *map){
+void renderer_render_map_2d(Renderer *renderer, Map *map){
   if (!renderer || !map){
     printf("worng renderer or map parameter in render_map2d_Renderer");
     return;
@@ -46,14 +46,14 @@ void render_map_2d_Renderer(Renderer *renderer, Map *map){
   SDL_Rect rect;
   for (size_t y = 0; y < map->height; y++){
     for (size_t x = 0; x < map->width; x++){
-      int map_val = get_map_value(map, x, y);
+      int map_val = map_get_value(map, x, y);
       if (map_val){
         rect.x = x * renderer->texture_manager->texture_width;
         rect.y = y * renderer->texture_manager->texture_height;
         rect.w = renderer->texture_manager->texture_width;
         rect.h = renderer->texture_manager->texture_height;
 
-        SDL_RenderCopy(renderer->sdl_renderer, get_texture_TextureManager(renderer->texture_manager, map_val), NULL, &rect);
+        SDL_RenderCopy(renderer->sdl_renderer, texturemanager_get_texture(renderer->texture_manager, map_val), NULL, &rect);
 
         //SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 100*map_val, 0, 255);
         //SDL_RenderDrawRect(renderer->sdl_renderer, &map->rect);
@@ -63,7 +63,7 @@ void render_map_2d_Renderer(Renderer *renderer, Map *map){
  
 }
 
-void render_player_2d_Renderer(Renderer *renderer, Player *player){
+void renderer_render_player_2d(Renderer *renderer, Player *player){
   if (!renderer || !player){
     printf("Wrong player or renderer pointer parameter inside render_player_2d\n");
     return;
@@ -84,23 +84,24 @@ void render_player_2d_Renderer(Renderer *renderer, Player *player){
   SDL_RenderDrawLine(renderer->sdl_renderer, line_start_x, line_start_y, line_end_x, line_end_y);
 }
 
-void render_Renderer(Renderer *renderer, Player *player, Map *map){
+void renderer_render(Renderer *renderer, Player *player, Map *map){
   SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer->sdl_renderer);
 
-  render_map_2d_Renderer(renderer, map);
-  render_player_2d_Renderer(renderer, player);
+  renderer_render_map_2d(renderer, map);
+  renderer_render_player_2d(renderer, player);
+  
   SDL_RenderPresent(renderer->sdl_renderer);
 }
 
-void destroy_Renderer(Renderer *renderer){
+void renderer_destroy(Renderer *renderer){
   if(!renderer){
     return;
   }
 
   SDL_DestroyWindow(renderer->window);
   SDL_DestroyRenderer(renderer->sdl_renderer);
-  destroy_TextureManager(renderer->texture_manager);
+  texturemanager_destroy(renderer->texture_manager);
   free(renderer);
   renderer = NULL;
 }

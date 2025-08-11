@@ -18,9 +18,9 @@ typedef struct {
   double player_size;
 }Player;
 
-Player* init_player();
+Player* player_create();
 void player_handle_input(Player *player, const Uint8 *keystate); 
-void update_player(Player *player, double delta_time);
-void destroy_player(Player* p);
+void player_update(Player *player, double delta_time);
+void player_destroy(Player* p);
 
 #endif

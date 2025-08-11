@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 //impure function that create a contiguous array of size width * height modifies a maps buffer array probably declared in main.c
-Map* init_map(size_t width, size_t height){
+Map* map_create(size_t width, size_t height){
   Map* map = malloc(sizeof(Map));  
   if (map == NULL || width == 0 || height == 0){
     return NULL;
@@ -20,10 +20,10 @@ Map* init_map(size_t width, size_t height){
     for (size_t x = 0; x < map->width; x++){
       //set_map_value(map, x, y, (y/(height/5))+1);
       if (y == 0 || y == map->height-1 || x == 0 || x == map->width-1){
-        set_map_value(map, x, y, (y/2)+1);
+        map_set_value(map, x, y, (y/2)+1);
       }
       else {
-        set_map_value(map, x, y, 0);
+        map_set_value(map, x, y, 0);
       }
     } 
   }
@@ -31,21 +31,21 @@ Map* init_map(size_t width, size_t height){
   return map;
 }
 
-int get_map_value(Map *map, size_t x, size_t y){
+int map_get_value(Map *map, size_t x, size_t y){
   if (map == NULL || x >= map->width || y >= map->height){
     return 0;
   }
   return map->buffer[y * map->width + x];
 }
 
-void set_map_value(Map *map, size_t x, size_t y, int value){
+void map_set_value(Map *map, size_t x, size_t y, int value){
   if (map == NULL || x >= map->width || y >= map->height){
     return;
   }
   map->buffer[y * map->width + x] = value;
 }
 
-void destroy_map(Map *map){
+void map_destroy(Map *map){
   if (!map){
     return;
   }

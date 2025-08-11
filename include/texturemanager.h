@@ -14,10 +14,10 @@ typedef struct{
   int texture_height;
 }TextureManager;
 
-TextureManager* init_TextureManager(int num_textures, SDL_Renderer* renderer, int texture_width, int texture_height);
-int add_texture_TextureManager(TextureManager* texture_manager, SDL_Renderer* renderer, const char* texture_path);
-void remove_texture_TextureManager(TextureManager* texture_manager, int texutre_id);
-void destroy_TextureManager(TextureManager* texture_manager);
-SDL_Texture* get_texture_TextureManager(TextureManager* texture_manager, int texture_id);
+TextureManager* texturemanager_create(int num_textures, SDL_Renderer* renderer, int texture_width, int texture_height);
+int texturemanager_add_texture(TextureManager* texture_manager, SDL_Renderer* renderer, const char* texture_path);
+void texturemanager_remove_texture(TextureManager* texture_manager, int texutre_id);
+SDL_Texture* texturemanager_get_texture(TextureManager* texture_manager, int texture_id);
+void texturemanager_destroy(TextureManager* texture_manager);
 
 #endif

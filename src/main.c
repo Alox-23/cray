@@ -6,8 +6,8 @@
 #include "../include/renderer.h"
 
 int main (){
-  Game* game = init_game();
-  if (!game) cleanup(game, EXIT_FAILURE);
+  Game* game = game_create();
+  if (!game) game_destroy(game, EXIT_FAILURE);
   
   Uint32 a;
   Uint32 b;
@@ -23,8 +23,8 @@ int main (){
     last_time = current_time;
    
     input_poll(game);
-    update_game(game);
-    render_Renderer(game->renderer, game->player, game->map);
+    game_update(game);
+    renderer_render(game->renderer, game->player, game->map);
     
     b=SDL_GetTicks();
     total = total + (b-a);
@@ -33,6 +33,6 @@ int main (){
     //usleep(16000);
   }
   printf("AVG time per frame, total time, number of frames: %i, %i, %i\n", total/count, total, count);
-  cleanup(game, EXIT_SUCCESS);
+  game_destroy(game, EXIT_SUCCESS);
   return 0;
 }

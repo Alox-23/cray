@@ -1,7 +1,7 @@
 #include "../include/player.h"
 #include "../include/utils.h"
 
-Player* init_player(){
+Player* player_create(){
   Player* p = malloc(sizeof(Player));
   if (!p) return NULL;
   
@@ -42,7 +42,7 @@ void player_handle_input(Player *player, const Uint8 *keystate){
   }
 }
 
-void update_player(Player *player, double delta_time){
+void player_update(Player *player, double delta_time){
   player->pos = add(player->pos, scale(player->vel, delta_time));
   printf("POS = (%f, %f)\n DIR = (%f, %f) VEL(%f, %f)", player->pos.x, player->pos.y, player->dir.x, player->dir.y, player->vel.x, player->vel.y);
   player->dir = rotate(player->dir, player->a_vel * delta_time);
@@ -52,7 +52,7 @@ void update_player(Player *player, double delta_time){
   player->rect.y = player->pos.y -5;
 }
 
-void destroy_player(Player* p){
+void player_destroy(Player* p){
   if (!p){
     return;
   }
