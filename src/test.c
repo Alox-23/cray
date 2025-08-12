@@ -62,7 +62,7 @@ int main(){
     }
 
     // Create texture manager
-    TextureManager* tm = init_TextureManager(5, renderer, 32, 32);
+    TextureManager* tm = texturemanager_create(5, renderer, 32, 32);
     if (!tm) {
         printf("Failed to create texture manager\n");
         SDL_DestroyRenderer(renderer);
@@ -82,7 +82,7 @@ int main(){
     };
 
     for (int i = 0; i < 5; i++) {
-        if (add_texture_TextureManager(tm, renderer, texture_paths[i]) == -1) {
+        if (texturemanager_add_texture(tm, renderer, texture_paths[i]) == -1) {
             printf("Failed to load texture %d\n", i);
         }
     }
@@ -105,8 +105,8 @@ int main(){
         // Draw all textures in a grid pattern
         int x = 50, y = 50;
         SDL_Color white = {255, 255, 255, 255};
-        for (int i = 0; i <= tm->texture_count; i++) {
-            SDL_Texture* tex = get_texture_TextureManager(tm, i);
+        for (size_t i = 0; i <= tm->texture_count; i++) {
+            SDL_Texture* tex = texturemanager_get_texture(tm, i);
             if (tex) {
                 // Get texture dimensions
                 int w, h;
@@ -140,9 +140,8 @@ int main(){
         // Update screen
         SDL_RenderPresent(renderer);
     }
-    printf("Texture manager cpapacity: %i/%i\n", tm->texture_count, tm->texture_capacity);
     // Cleanup
-    destroy_TextureManager(tm);
+    texturemanager_destroy(tm);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     IMG_Quit();
