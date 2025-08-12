@@ -29,7 +29,6 @@ int main (){
     b=SDL_GetTicks();
     total = total + (b-a);
     count++;
-    printf("\nTime for this frame, total time, number of frames: %i, %i, %i\n", b - a, total, count);
     //usleep(16000);
   }
   printf("AVG time per frame, total time, number of frames: %i, %i, %i\n", total/count, total, count);
