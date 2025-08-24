@@ -11,6 +11,9 @@ Player* player_create(){
   p->dir.x = 1;
   p->dir.y = 0;
 
+  p->plane.x = 0;
+  p->plane.y = 0.66;
+
   p->player_size = 0.5;
 
   return p;

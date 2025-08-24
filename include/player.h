@@ -12,6 +12,7 @@ typedef struct {
   Vector2 pos;
   Vector2 dir;
   Vector2 vel;
+  Vector2 plane;
   SDL_Rect rect;  
   double a_vel;
   double angle;

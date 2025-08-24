@@ -2,6 +2,7 @@
 #include "../include/player.h"
 #include "../include/map.h"
 #include "../include/texturemanager.h"
+#include <stdlib.h>
 
 Renderer* renderer_create(){
   Renderer* renderer = malloc(sizeof(Renderer));
@@ -14,7 +15,7 @@ Renderer* renderer_create(){
   renderer->window = SDL_CreateWindow("SDL2 hello world", 100, 100, renderer->width, renderer->height, SDL_WINDOW_SHOWN);
   if(!renderer->window){
     printf("SDL_CreateWindow error: %s\n", SDL_GetError());
-    return NULL;
+return NULL;
   }
 
   renderer->sdl_renderer =  SDL_CreateRenderer(renderer->window, -1, SDL_RENDERER_ACCELERATED);
@@ -60,6 +61,66 @@ void renderer_render_map_2d(Renderer *renderer, Map *map){
  
 }
 
+void renderer_raycast(Renderer* renderer, Map *map, Player *player){
+  if (!renderer || !map || !player){
+    printf("Invalid pointer passed to renderer_raycast\n");
+    return;
+  } 
+
+  //raycasting logic
+  Vector2 ray_dir;
+  Vector2 side_dist;
+  Vector2 delta_dist;
+  for (int x = renderer->width/2; x < renderer->width; x++){
+    double camera_x = 2 * x / renderer->width - 1;
+    ray_dir = scale(add(ray_dir, player->dir), camera_x);
+    
+    int map_x = floor(player->pos.x);
+    int map_y = floor(player->pos.y);
+
+    delta_dist.x = (ray_dir.x == 0) ? 1e30 : fabs(1 / ray_dir.x);
+    delta_dist.y = (ray_dir.y == 0) ? 1e30 : fabs(1 / ray_dir.y);
+
+    int step_x;
+    int step_y;
+
+    bool hit = false;
+    int side;
+
+    if (ray_dir.x < 0){
+      step_x = -1;
+      side_dist.x = (player->pos.x - map_x) * delta_dist.x;
+    }
+    else{
+      step_x = 1;
+      side_dist.x = (map_x + 1 - player->pos.x) * delta_dist.x;
+    }
+    if (ray_dir.y < 0){
+      step_y = -1;
+      side_dist.y = (player->pos.y - map_y) * delta_dist.y;
+    }
+    else{
+      step_y = 1;
+      side_dist.y = (map_y + 1 - player->pos.y) * delta_dist.y;
+    }
+
+    while (!hit){
+      if (side_dist.x < side_dist.y){
+        side_dist.x += delta_dist.x;
+        map_x += step_x;
+        side = 0;
+      }
+      else{
+        side_dist.y += delta_dist.y;
+        map_y += step_y;
+        side = 1;
+      }
+
+      if (map_get_value(map, map_x, map_y) > 0) hit = true;
+    }
+  }
+}
+
 void renderer_render_player_2d(Renderer *renderer, Player *player){
   if (!renderer || !player){
     printf("Wrong player or renderer pointer parameter inside render_player_2d\n");
@@ -87,7 +148,8 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
 
   renderer_render_map_2d(renderer, map);
   renderer_render_player_2d(renderer, player);
-  
+  renderer_raycast(renderer, map, player);
+
   SDL_RenderPresent(renderer->sdl_renderer);
 }
 
