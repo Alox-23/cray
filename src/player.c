@@ -44,7 +44,6 @@ void player_handle_input(Player *player, const Uint8 *keystate){
 
 void player_update(Player *player, double delta_time){
   player->pos = add(player->pos, scale(player->vel, delta_time));
-  printf("POS = (%f, %f)\n DIR = (%f, %f) VEL(%f, %f)", player->pos.x, player->pos.y, player->dir.x, player->dir.y, player->vel.x, player->vel.y);
   player->dir = rotate(player->dir, player->a_vel * delta_time);
   player->angle += player->a_vel;
 

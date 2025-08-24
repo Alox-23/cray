@@ -42,7 +42,8 @@ TextureManager* texturemanager_create(size_t num_textures, SDL_Renderer* rendere
     printf("Error loading texture, SDL_Error: %s\n", IMG_GetError());
     return NULL;
   }
-
+  
+  SDL_FreeSurface(surface);
   SDL_Texture* resized_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, texture_manager->texture_width, texture_manager->texture_height);
 
   SDL_SetRenderTarget(renderer, resized_texture);
@@ -91,6 +92,7 @@ int texturemanager_add_texture(TextureManager* texture_manager, SDL_Renderer* re
     return 0;
   }
 
+  SDL_FreeSurface(surface);
   SDL_Texture* resized_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, texture_manager->texture_width, texture_manager->texture_height);
 
   SDL_SetRenderTarget(renderer, resized_texture);

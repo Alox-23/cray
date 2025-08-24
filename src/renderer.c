@@ -17,7 +17,7 @@ Renderer* renderer_create(){
     return NULL;
   }
 
-  renderer->sdl_renderer =  SDL_CreateRenderer(renderer->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+  renderer->sdl_renderer =  SDL_CreateRenderer(renderer->window, -1, SDL_RENDERER_ACCELERATED);
   if(!renderer->sdl_renderer){
     printf("SDL_CreateRenderer error: %s\n", SDL_GetError());
     return NULL;
@@ -54,9 +54,6 @@ void renderer_render_map_2d(Renderer *renderer, Map *map){
         rect.h = renderer->texture_manager->texture_height;
 
         SDL_RenderCopy(renderer->sdl_renderer, texturemanager_get_texture(renderer->texture_manager, map_val), NULL, &rect);
-
-        //SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 100*map_val, 0, 255);
-        //SDL_RenderDrawRect(renderer->sdl_renderer, &map->rect);
       }
     }
   }
@@ -99,9 +96,9 @@ void renderer_destroy(Renderer *renderer){
     return;
   }
 
-  SDL_DestroyWindow(renderer->window);
-  SDL_DestroyRenderer(renderer->sdl_renderer);
   texturemanager_destroy(renderer->texture_manager);
+  SDL_DestroyRenderer(renderer->sdl_renderer);
+  SDL_DestroyWindow(renderer->window);
   free(renderer);
   renderer = NULL;
 }
