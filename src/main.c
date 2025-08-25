@@ -29,7 +29,6 @@ int main (){
     b=SDL_GetTicks();
     total = total + (b-a);
     count++;
-    //usleep(16000);
   }
   printf("AVG time per frame, total time, number of frames: %i, %i, %i\n", total/count, total, count);
   game_destroy(game, EXIT_SUCCESS);
