@@ -73,7 +73,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
   Vector2 delta_dist;
   double perp_wall_dist = 0;
   SDL_Rect rect;
-  for (int x = 0; x < renderer->width; x++){
+  for (int x = renderer->width / 4; x < renderer->width - (renderer->width / 4); x++){
     double camera_x = 2 * x / (double)renderer->width - 1;
     ray_dir.x = player->dir.x + player->plane.x * camera_x;
     ray_dir.y = player->dir.y + player->plane.y * camera_x;
@@ -107,7 +107,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
       side_dist.y = (map_y + 1 - player->pos.y) * delta_dist.y;
     }
 
-    while (!hit){
+    for (int i = 0; i < RENDER_DISTANCE; i++){
       if (side_dist.x < side_dist.y){
         side_dist.x += delta_dist.x;
         map_x += step_x;
@@ -119,8 +119,14 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
         side = 1;
       }
 
-      if (map_get_value(map, map_x, map_y) > 0) hit = true;
+      if (map_get_value(map, map_x, map_y) > 0){
+        hit = true;
+        break;
+      }
     }
+    
+    if (!hit) continue;
+    
     if (side == 0){
       perp_wall_dist = side_dist.x - delta_dist.x;
     }
@@ -130,7 +136,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
 
     int line_height = renderer->height / (perp_wall_dist + 0.00001);
   
-    rect.x = x;
+    rect.x = x + (renderer->width / 4);
     rect.y = renderer->height / 2 - line_height / 2;
     rect.w = 1;
     rect.h = line_height;
@@ -138,8 +144,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
     double collision_x = player->pos.x + perp_wall_dist * ray_dir.x;
     double collision_y = player->pos.y + perp_wall_dist * ray_dir.y;
     
-    SDL_SetRenderDrawColor(renderer->sdl_renderer, 255, 0, 0, 255);
-    //SDL_RenderDrawLine(renderer->sdl_renderer, player->pos.x * renderer->scale_2d, player->pos.y * renderer->scale_2d, collision_x * renderer->scale_2d, collision_y * renderer->scale_2d);
+    SDL_SetRenderDrawColor(renderer->sdl_renderer, 100*(side +1), 0, 0, 255);
 
     SDL_RenderDrawRect(renderer->sdl_renderer, &rect);
   }

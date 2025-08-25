@@ -7,6 +7,8 @@
 #include "map.h"
 #include "texturemanager.h"
 
+#define RENDER_DISTANCE 50
+
 typedef struct{
   double scale_2d;
   int width;
