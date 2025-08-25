@@ -71,15 +71,15 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
   Vector2 ray_dir = {0, 0};
   Vector2 side_dist;
   Vector2 delta_dist;
-  int perp_wall_dist = 0;
+  double perp_wall_dist = 0;
   SDL_Rect rect;
   for (int x = 0; x < renderer->width; x++){
     double camera_x = 2 * x / (double)renderer->width - 1;
     ray_dir.x = player->dir.x + player->plane.x * camera_x;
     ray_dir.y = player->dir.y + player->plane.y * camera_x;
 
-    int map_x = floor(player->pos.x);
-    int map_y = floor(player->pos.y);
+    int map_x = (int)player->pos.x;
+    int map_y = (int)player->pos.y;
 
     delta_dist.x = (ray_dir.x == 0) ? 1e30 : fabs(1 / ray_dir.x);
     delta_dist.y = (ray_dir.y == 0) ? 1e30 : fabs(1 / ray_dir.y);
@@ -139,12 +139,9 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
     double collision_y = player->pos.y + perp_wall_dist * ray_dir.y;
     
     SDL_SetRenderDrawColor(renderer->sdl_renderer, 255, 0, 0, 255);
-    SDL_RenderDrawLine(renderer->sdl_renderer,
-                       player->pos.x * renderer->scale_2d, player->pos.y * renderer->scale_2d,
-                       collision_x * renderer->scale_2d, collision_y * renderer->scale_2d
-                       );
+    //SDL_RenderDrawLine(renderer->sdl_renderer, player->pos.x * renderer->scale_2d, player->pos.y * renderer->scale_2d, collision_x * renderer->scale_2d, collision_y * renderer->scale_2d);
 
-    //SDL_RenderDrawRect(renderer->sdl_renderer, &rect);
+    SDL_RenderDrawRect(renderer->sdl_renderer, &rect);
   }
 }
 

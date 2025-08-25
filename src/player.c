@@ -48,6 +48,7 @@ void player_handle_input(Player *player, const Uint8 *keystate){
 void player_update(Player *player, double delta_time){
   player->pos = add(player->pos, scale(player->vel, delta_time));
   player->dir = rotate(player->dir, player->a_vel * delta_time);
+  player->plane = rotate(player->plane, player->a_vel * delta_time);
   player->angle += player->a_vel;
 
   player->rect.x = player->pos.x -5;
