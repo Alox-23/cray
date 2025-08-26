@@ -73,7 +73,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
   Vector2 delta_dist;
   double perp_wall_dist = 0;
   SDL_Rect rect;
-  for (int x = renderer->width / 4; x < renderer->width - (renderer->width / 4); x++){
+  for (int x = 0; x < renderer->width; x++){
     double camera_x = 2 * x / (double)renderer->width - 1;
     ray_dir.x = player->dir.x + player->plane.x * camera_x;
     ray_dir.y = player->dir.y + player->plane.y * camera_x;
@@ -136,7 +136,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
 
     int line_height = renderer->height / (perp_wall_dist + 0.00001);
   
-    rect.x = x + (renderer->width / 4);
+    rect.x = x;
     rect.y = renderer->height / 2 - line_height / 2;
     rect.w = 1;
     rect.h = line_height;
@@ -149,6 +149,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
     double wall_x; //where exacly on the tile did the ray hit relative to the tiles left-most value
     if (side == 0) wall_x = player->pos.y + perp_wall_dist * ray_dir.y;
     else wall_x = player->pos.x + perp_wall_dist * ray_dir.x;
+    wall_x -= floor(wall_x);
 
     int texture_x = (int)(wall_x * renderer->texture_manager->texture_width);
     if (side == 0 && ray_dir.x > 0) texture_x = renderer->texture_manager->texture_width - texture_x - 1;
@@ -190,8 +191,8 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   SDL_RenderClear(renderer->sdl_renderer);
 
   renderer_raycast(renderer, map, player);
-  renderer_render_map_2d(renderer, map);
-  renderer_render_player_2d(renderer, player);
+  //renderer_render_map_2d(renderer, map);
+  //renderer_render_player_2d(renderer, player);
 
   SDL_RenderPresent(renderer->sdl_renderer);
 }
