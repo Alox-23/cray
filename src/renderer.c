@@ -144,9 +144,23 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
     double collision_x = player->pos.x + perp_wall_dist * ray_dir.x;
     double collision_y = player->pos.y + perp_wall_dist * ray_dir.y;
     
-    SDL_SetRenderDrawColor(renderer->sdl_renderer, 100*(side +1), 0, 0, 255);
+    int texture_id = map_get_value(map, map_x, map_y);
 
-    SDL_RenderDrawRect(renderer->sdl_renderer, &rect);
+    double wall_x; //where exacly on the tile did the ray hit relative to the tiles left-most value
+    if (side == 0) wall_x = player->pos.y + perp_wall_dist * ray_dir.y;
+    else wall_x = player->pos.x + perp_wall_dist * ray_dir.x;
+
+    int texture_x = (int)(wall_x * renderer->texture_manager->texture_width);
+    if (side == 0 && ray_dir.x > 0) texture_x = renderer->texture_manager->texture_width - texture_x - 1;
+    if (side == 1 && ray_dir.y < 0) texture_x = renderer->texture_manager->texture_width - texture_x - 1;
+
+    SDL_Rect texture_rect;
+    texture_rect.x = texture_x;
+    texture_rect.y = 0;
+    texture_rect.w = renderer->texture_manager->texture_width;
+    texture_rect.h = renderer->texture_manager->texture_height;
+    
+    SDL_RenderCopy(renderer->sdl_renderer, texturemanager_get_texture(renderer->texture_manager, texture_id), &texture_rect, &rect);
   }
 }
 
