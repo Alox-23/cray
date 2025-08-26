@@ -29,11 +29,11 @@ int main (){
     b=SDL_GetPerformanceCounter();
     static Uint64 freq = 0;
     freq = SDL_GetPerformanceFrequency();
-    double frame_time = (double)(b-a) / freq * 1000000;
-    total = total + (b-a);
+    double frame_time = (double)(b-a) / freq * 1000;
+    total = total + frame_time;
     count++;
   }
-  printf("AVG time per frame, total time, number of frames: %.3f, %i, %i\n", total/count, total, count);
+  printf("TIME(ms): %.3f\nRTIME(s): %.1f\nFPS     : %.0f\n", total/count, total / 1000, 1.0f / (total/1000/count));
   game_destroy(game, EXIT_SUCCESS);
   return 0;
 }

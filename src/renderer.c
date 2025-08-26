@@ -9,8 +9,8 @@ Renderer* renderer_create(){
   if (!renderer) return NULL;
   
   renderer->scale_2d = 20;
-  renderer->width = 400;
-  renderer->height = 200;
+  renderer->width = 800;
+  renderer->height = 500;
   
   renderer->window = SDL_CreateWindow("SDL2 hello world", 100, 100, renderer->width, renderer->height, SDL_WINDOW_SHOWN);
   if(!renderer->window){
@@ -18,6 +18,7 @@ Renderer* renderer_create(){
 return NULL;
   }
 
+  //renderer->sdl_renderer =  SDL_CreateRenderer(renderer->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
   renderer->sdl_renderer =  SDL_CreateRenderer(renderer->window, -1, SDL_RENDERER_ACCELERATED);
   if(!renderer->sdl_renderer){
     printf("SDL_CreateRenderer error: %s\n", SDL_GetError());
@@ -158,7 +159,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
     SDL_Rect texture_rect;
     texture_rect.x = texture_x;
     texture_rect.y = 0;
-    texture_rect.w = renderer->texture_manager->texture_width;
+    texture_rect.w = 1;
     texture_rect.h = renderer->texture_manager->texture_height;
     
     SDL_RenderCopy(renderer->sdl_renderer, texturemanager_get_texture(renderer->texture_manager, texture_id), &texture_rect, &rect);

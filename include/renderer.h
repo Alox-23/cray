@@ -13,6 +13,7 @@ typedef struct{
   double scale_2d;
   int width;
   int height;
+  int raycasting_scale;
   SDL_Renderer *sdl_renderer;
   SDL_Window *window; 
   TextureManager* texture_manager;
