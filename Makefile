@@ -10,7 +10,7 @@ all:
 	./$(TARGET)
 
 comp:
-	$(CC) $(DFLAGS) -o $(TARGET) $(SRC) $(LIBS)
+	$(CC) $(FLAGS) -o $(TARGET) $(SRC) $(LIBS)
 	
 run:
 	./$(TARGET)

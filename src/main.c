@@ -9,15 +9,15 @@ int main (){
   Game* game = game_create();
   if (!game) game_destroy(game, EXIT_FAILURE);
   
-  Uint32 a;
-  Uint32 b;
+  Uint64 a;
+  Uint64 b;
   
-  Uint32 total = 0;
-  Uint32 count = 0;
+  double total = 0;
+  Uint64 count = 0;
 
   Uint32 last_time = SDL_GetTicks();
   while(game->state){
-    a = SDL_GetTicks();
+    a = SDL_GetPerformanceCounter();
     Uint32 current_time = SDL_GetTicks();
     game->delta_time = (current_time- last_time) / 1000.0f;
     last_time = current_time;
@@ -26,11 +26,14 @@ int main (){
     game_update(game);
     renderer_render(game->renderer, game->player, game->map);
     
-    b=SDL_GetTicks();
+    b=SDL_GetPerformanceCounter();
+    static Uint64 freq = 0;
+    freq = SDL_GetPerformanceFrequency();
+    double frame_time = (double)(b-a) / freq * 1000000;
     total = total + (b-a);
     count++;
   }
-  printf("AVG time per frame, total time, number of frames: %i, %i, %i\n", total/count, total, count);
+  printf("AVG time per frame, total time, number of frames: %.3f, %i, %i\n", total/count, total, count);
   game_destroy(game, EXIT_SUCCESS);
   return 0;
 }
