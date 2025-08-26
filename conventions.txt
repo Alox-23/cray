@@ -1,6 +1,28 @@
 Here are the naming conventions for this project:
 
 structs: ExampleSubsystem
-functions: examplesubsystem_init()
+functions: examplesubsystem_create()
 variables: example_variable
 constants:  EXAMPLE_CONSTANT
+
+Here are some conventions for ensuring memery safety and management:
+
+Create ExampleSubsystem:
+  Function desc.:
+    ·dynamicly alocates ExampleSubsystem 
+    ·initialized its variables/other sybsystems
+    ·returns a pointer to ExampleSubsystem
+  Failier:
+    Uppon failer the function retturns NULL
+
+Destoy ExampleSubsystem:
+  Function desc.:
+    ·calls destroy functions to any subsystems that ExampleSubsystem has
+    ·frees any dynamicly alocated arrays/variables
+    ·frees ExampleSubsystem pointer
+
+How to insure all subsytems are destroyed:
+  game_destroy function calls the subsytem_destroy functions to all subsytems it manages
+  those subsystems then call the destroy function to any subsystems they have. There it 
+  a NULL check in each destroy function which skipps systems that have not been initialized
+  correctly(causes of crash). 
