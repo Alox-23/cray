@@ -20,10 +20,10 @@ Map* map_create(size_t width, size_t height){
     for (size_t x = 0; x < map->width; x++){
       //set_map_value(map, x, y, (y/(height/5))+1);
       if (y == 0 || y == map->height-1 || x == 0 || x == map->width-1){
-        map_set_value(map, x, y, (y/2)+1);
+        map_set_value(map, x, y, (y/4)+1);
       }
       else if(x % 4 == 0 && y % 4 == 0){
-        map_set_value(map, x, y, (y/2)+1);
+        map_set_value(map, x, y, (y/4)+1);
       }
       else {
         map_set_value(map, x, y, 0);
