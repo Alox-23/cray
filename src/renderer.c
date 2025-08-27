@@ -32,7 +32,7 @@ Renderer* renderer_create(){
     return NULL;
   }
 
-  renderer->render_queue = renderqueue_create(1000);
+  renderer->render_queue = renderqueue_create(2048);
   if (!renderer->render_queue){
     return NULL;
   }
@@ -66,7 +66,6 @@ void renderer_render_map_2d(Renderer *renderer, Map *map){
       }
     }
   }
- 
 }
 
 void renderer_raycast(Renderer* renderer, Map *map, Player *player){
@@ -80,23 +79,32 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
   Vector2 side_dist;
   Vector2 delta_dist;
   double perp_wall_dist = 0;
-  SDL_Rect rect;
+  RenderObject* obj;
+  double camera_x;
+  int map_x;
+  int map_y;
+  int step_x;
+  int step_y;
+  bool hit;
+  int side;
+  int line_height;
+  double collision_x;
+  double collision_y;
+  int texture_id;
+  double wall_x;
+  int texture_x;
   for (int x = 0; x < renderer->width; x++){
-    double camera_x = 2 * x / (double)renderer->width - 1;
+    camera_x = 2 * x / (double)renderer->width - 1;
     ray_dir.x = player->dir.x + player->plane.x * camera_x;
     ray_dir.y = player->dir.y + player->plane.y * camera_x;
 
-    int map_x = (int)player->pos.x;
-    int map_y = (int)player->pos.y;
+    map_x = (int)player->pos.x;
+    map_y = (int)player->pos.y;
 
     delta_dist.x = (ray_dir.x == 0) ? 1e30 : fabs(1 / ray_dir.x);
     delta_dist.y = (ray_dir.y == 0) ? 1e30 : fabs(1 / ray_dir.y);
 
-    int step_x;
-    int step_y;
-
-    bool hit = false;
-    int side;
+    hit = false;
 
     if (ray_dir.x < 0){
       step_x = -1;
@@ -142,39 +150,34 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
       perp_wall_dist = side_dist.y - delta_dist.y;
     }
 
-    int line_height = renderer->height / (perp_wall_dist + 0.00001);
+    line_height = renderer->height / (perp_wall_dist + 0.00001);
   
-    rect.x = x;
-    rect.y = renderer->height / 2 - line_height / 2;
-    rect.w = 1;
-    rect.h = line_height;
-
-    double collision_x = player->pos.x + perp_wall_dist * ray_dir.x;
-    double collision_y = player->pos.y + perp_wall_dist * ray_dir.y;
+    collision_x = player->pos.x + perp_wall_dist * ray_dir.x;
+    collision_y = player->pos.y + perp_wall_dist * ray_dir.y;
     
-    int texture_id = map_get_value(map, map_x, map_y);
+    texture_id = map_get_value(map, map_x, map_y);
 
-    double wall_x; //where exacly on the tile did the ray hit relative to the tiles left-most value
+    wall_x; //where exacly on the tile did the ray hit relative to the tiles left-most value
     if (side == 0) wall_x = player->pos.y + perp_wall_dist * ray_dir.y;
     else wall_x = player->pos.x + perp_wall_dist * ray_dir.x;
     wall_x -= floor(wall_x);
 
-    int texture_x = (int)(wall_x * renderer->texture_manager->texture_width);
+    texture_x = (int)(wall_x * renderer->texture_manager->texture_width);
     if (side == 0 && ray_dir.x > 0) texture_x = renderer->texture_manager->texture_width - texture_x - 1;
     if (side == 1 && ray_dir.y < 0) texture_x = renderer->texture_manager->texture_width - texture_x - 1;
 
-    SDL_Rect texture_rect;
-    texture_rect.x = texture_x;
-    texture_rect.y = 0;
-    texture_rect.w = 1;
-    texture_rect.h = renderer->texture_manager->texture_height;
-    
-    RenderObject* obj = renderqueue_get_object(renderer->render_queue);
+    obj = renderqueue_get_object(renderer->render_queue);
     if (!obj) break;
 
     obj->texture_id = texture_id;
-    obj->src_rect = texture_rect;
-    obj->dest_rect = rect;
+    obj->dest_rect.x = x;
+    obj->dest_rect.y = renderer->height / 2 - line_height / 2;
+    obj->dest_rect.w = 1;
+    obj->dest_rect.h = line_height;
+    obj->src_rect.x = texture_x;
+    obj->src_rect.y = 0;
+    obj->src_rect.w = 1;
+    obj->src_rect.h = renderer->texture_manager->texture_height;
     obj->perp_dist = perp_wall_dist;
   }
 }
@@ -207,20 +210,11 @@ void renderer_flush_queue(Renderer * renderer){
   }
   
   renderqueue_sort(renderer->render_queue);
-  
-  int current_texture = -1;
-
+ 
+  RenderObject* obj;
   for (int i = 0; i < renderer->render_queue->count; i++){
-    RenderObject* obj = &renderer->render_queue->render_object_array[i];
-
-    if (obj->texture_id != current_texture){
-      SDL_Texture* texture = texturemanager_get_texture(renderer->texture_manager, obj->texture_id);
-      SDL_RenderCopy(renderer->sdl_renderer, texture, &obj->src_rect, &obj->dest_rect);
-      current_texture = obj->texture_id;
-    }
-    else {
-      SDL_RenderCopy(renderer->sdl_renderer, NULL, &obj->src_rect, &obj->dest_rect);
-    }
+    obj = &renderer->render_queue->render_object_array[i];
+    SDL_RenderCopy(renderer->sdl_renderer, texturemanager_get_texture(renderer->texture_manager, obj->texture_id), &obj->src_rect, &obj->dest_rect);
   }
 
   renderqueue_clear(renderer->render_queue);
