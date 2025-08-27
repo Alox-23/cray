@@ -10,7 +10,7 @@ Renderer* renderer_create(){
   Renderer* renderer = malloc(sizeof(Renderer));
   if (!renderer) return NULL;
   
-  renderer->scale_2d = 20;
+  renderer->scale_2d = 8;
   renderer->width = 800;
   renderer->height = 500;
   
@@ -57,10 +57,10 @@ void renderer_render_map_2d(Renderer *renderer, Map *map){
     for (size_t x = 0; x < map->width; x++){
       int map_val = map_get_value(map, x, y);
       if (map_val){
-        rect.x = x * renderer->texture_manager->texture_width;
-        rect.y = y * renderer->texture_manager->texture_height;
-        rect.w = renderer->texture_manager->texture_width;
-        rect.h = renderer->texture_manager->texture_height;
+        rect.x = x * renderer->scale_2d;
+        rect.y = y * renderer->scale_2d;
+        rect.w = renderer->scale_2d;
+        rect.h = renderer->scale_2d;
 
         SDL_RenderCopy(renderer->sdl_renderer, texturemanager_get_texture(renderer->texture_manager, map_val), NULL, &rect);
       }
@@ -221,15 +221,24 @@ void renderer_flush_queue(Renderer * renderer){
 }
 
 void renderer_render(Renderer *renderer, Player *player, Map *map){
-  SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 0, 0, 255);
+  SDL_SetRenderDrawColor(renderer->sdl_renderer, 150, 150, 220, 255);
   SDL_RenderClear(renderer->sdl_renderer);
 
+  SDL_Rect rect;
+  rect.x = 0;
+  rect.y = renderer->height / 2;
+  rect.h = renderer->height / 2;
+  rect.w = renderer->width;
+ 
+  SDL_SetRenderDrawColor(renderer->sdl_renderer, 30, 30, 30, 255);
+  SDL_RenderFillRect(renderer->sdl_renderer, &rect);
+
   renderer_raycast(renderer, map, player);
-  //renderer_render_map_2d(renderer, map);
-  //renderer_render_player_2d(renderer, player);
-
   renderer_flush_queue(renderer);
-
+ 
+  renderer_render_map_2d(renderer, map);
+  renderer_render_player_2d(renderer, player);
+  
   SDL_RenderPresent(renderer->sdl_renderer);
 }
 
