@@ -6,6 +6,8 @@
 #include "player.h"
 #include "map.h"
 #include "texturemanager.h"
+#include "renderqueue.h"
+#include "renderobject.h"
 
 #define RENDER_DISTANCE 50
 
@@ -15,7 +17,8 @@ typedef struct{
   int height;
   int raycasting_scale;
   SDL_Renderer *sdl_renderer;
-  SDL_Window *window; 
+  SDL_Window *window;
+  RenderQueue* render_queue;
   TextureManager* texture_manager;
 }Renderer;
 

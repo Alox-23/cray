@@ -43,7 +43,7 @@ RenderObject* renderqueue_get_object(RenderQueue* rq){
 
 
   if (rq->count+1 >= rq->capacity){
-    printf("Out of Memory in render queue\n");
+    printf("Out of Memory in render queue: %li/%li\n", rq->count, rq->capacity);
     return NULL;
   }
 

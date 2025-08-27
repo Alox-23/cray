@@ -5,7 +5,8 @@
 #include <SDL2/SDL.h>
 
 typedef struct {
-  SDL_Rect rect;
+  SDL_Rect dest_rect;
+  SDL_Rect src_rect;
   double perp_dist;
   int texture_id;
 } RenderObject;

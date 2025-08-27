@@ -2,6 +2,8 @@
 #include "../include/player.h"
 #include "../include/map.h"
 #include "../include/texturemanager.h"
+#include "../include/renderobject.h"
+#include "../include/renderqueue.h"
 #include <stdlib.h>
 
 Renderer* renderer_create(){
@@ -15,7 +17,7 @@ Renderer* renderer_create(){
   renderer->window = SDL_CreateWindow("SDL2 hello world", 100, 100, renderer->width, renderer->height, SDL_WINDOW_SHOWN);
   if(!renderer->window){
     printf("SDL_CreateWindow error: %s\n", SDL_GetError());
-return NULL;
+    return NULL;
   }
 
   //renderer->sdl_renderer =  SDL_CreateRenderer(renderer->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
@@ -27,6 +29,11 @@ return NULL;
 
   renderer->texture_manager = texturemanager_create(5, renderer->sdl_renderer, 20, 20);
   if (!renderer->texture_manager){
+    return NULL;
+  }
+
+  renderer->render_queue = renderqueue_create(1000);
+  if (!renderer->render_queue){
     return NULL;
   }
 
@@ -162,7 +169,13 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
     texture_rect.w = 1;
     texture_rect.h = renderer->texture_manager->texture_height;
     
-    SDL_RenderCopy(renderer->sdl_renderer, texturemanager_get_texture(renderer->texture_manager, texture_id), &texture_rect, &rect);
+    RenderObject* obj = renderqueue_get_object(renderer->render_queue);
+    if (!obj) break;
+
+    obj->texture_id = texture_id;
+    obj->src_rect = texture_rect;
+    obj->dest_rect = rect;
+    obj->perp_dist = perp_wall_dist;
   }
 }
 
@@ -187,6 +200,32 @@ void renderer_render_player_2d(Renderer *renderer, Player *player){
   SDL_RenderDrawLine(renderer->sdl_renderer, line_start_x, line_start_y, line_end_x, line_end_y);
 }
 
+void renderer_flush_queue(Renderer * renderer){
+  if (!renderer){
+    printf("Invalid renderer pointer inside of render_render_queue\n");
+    return;
+  }
+  
+  renderqueue_sort(renderer->render_queue);
+  
+  int current_texture = -1;
+
+  for (int i = 0; i < renderer->render_queue->count; i++){
+    RenderObject* obj = &renderer->render_queue->render_object_array[i];
+
+    if (obj->texture_id != current_texture){
+      SDL_Texture* texture = texturemanager_get_texture(renderer->texture_manager, obj->texture_id);
+      SDL_RenderCopy(renderer->sdl_renderer, texture, &obj->src_rect, &obj->dest_rect);
+      current_texture = obj->texture_id;
+    }
+    else {
+      SDL_RenderCopy(renderer->sdl_renderer, NULL, &obj->src_rect, &obj->dest_rect);
+    }
+  }
+
+  renderqueue_clear(renderer->render_queue);
+}
+
 void renderer_render(Renderer *renderer, Player *player, Map *map){
   SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer->sdl_renderer);
@@ -194,6 +233,8 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   renderer_raycast(renderer, map, player);
   //renderer_render_map_2d(renderer, map);
   //renderer_render_player_2d(renderer, player);
+
+  renderer_flush_queue(renderer);
 
   SDL_RenderPresent(renderer->sdl_renderer);
 }
@@ -204,6 +245,7 @@ void renderer_destroy(Renderer *renderer){
   }
 
   texturemanager_destroy(renderer->texture_manager);
+  renderqueue_destroy(renderer->render_queue);
   SDL_DestroyRenderer(renderer->sdl_renderer);
   SDL_DestroyWindow(renderer->window);
   free(renderer);
