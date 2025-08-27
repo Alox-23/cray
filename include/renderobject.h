@@ -10,7 +10,6 @@ typedef struct {
   int texture_id;
 } RenderObject;
 
-RenderObject* renderobject_create(SDL_Rect rect, double perp_dist, int texture_id);
-void renderobject_destroy(RenderObject* render_object);
+int compare_render_object(const void* a, const void* b);
 
 #endif
