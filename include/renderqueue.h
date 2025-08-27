@@ -1,12 +1,12 @@
-#ifdef RENDERQUEUE_H
+#ifndef RENDERQUEUE_H
 #define RENDERQUEUE_H
 
 #include "renderobject.h"
 
-typedef struct {
+typedef struct{
   RenderObject* render_object_array;
   size_t capacity;
-  int count;
+  size_t count;
 }RenderQueue;
 
 RenderQueue* renderqueue_create(int initial_capacity);

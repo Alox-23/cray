@@ -1,5 +1,6 @@
 #include "../include/renderqueue.h"
 #include "../include/renderobject.h"
+#include <stdlib.h>
 
 RenderQueue* renderqueue_create(int initial_capacity){
   RenderQueue* rq = malloc(sizeof(RenderQueue));
@@ -40,14 +41,15 @@ RenderObject* renderqueue_get_object(RenderQueue* rq){
     return NULL;
   }
 
-  rq->count+=1;
 
-  if (rq->count >= rq->capacity){
+  if (rq->count+1 >= rq->capacity){
     printf("Out of Memory in render queue\n");
     return NULL;
   }
 
-  return rq->render_object_array[rq->count];
+  rq->count+=1;
+  
+  return &rq->render_object_array[rq->count];
 }
 
 void renderqueue_destroy(RenderQueue* rq){
