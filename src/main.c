@@ -4,6 +4,7 @@
 #include "../include/game.h"
 #include "../include/input.h"
 #include "../include/renderer.h"
+#include "../include/profile.h"
 
 int main (){
   Game* game = game_create();

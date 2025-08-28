@@ -2,6 +2,8 @@
 #define UTILS_H
 
 #include <math.h>
+#include <stdlib.h>
+#include <SDL2/SDL.h>
 
 typedef struct{
   double x;

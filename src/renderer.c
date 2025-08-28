@@ -4,6 +4,7 @@
 #include "../include/texturemanager.h"
 #include "../include/renderobject.h"
 #include "../include/renderqueue.h"
+#include "../include/profile.h"
 #include <stdlib.h>
 
 Renderer* renderer_create(){
@@ -69,6 +70,7 @@ void renderer_render_map_2d(Renderer *renderer, Map *map){
 }
 
 void renderer_raycast(Renderer* renderer, Map *map, Player *player){
+  PROFILE_BEGIN("Raycasting");
   if (!renderer || !map || !player){
     printf("Invalid pointer passed to renderer_raycast\n");
     return;
@@ -165,7 +167,6 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
     texture_x = (int)(wall_x * renderer->texture_manager->texture_width);
     if (side == 0 && ray_dir.x > 0) texture_x = renderer->texture_manager->texture_width - texture_x - 1;
     if (side == 1 && ray_dir.y < 0) texture_x = renderer->texture_manager->texture_width - texture_x - 1;
-
     obj = renderqueue_get_object(renderer->render_queue);
     if (!obj) break;
 
@@ -180,6 +181,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
     obj->src_rect.h = renderer->texture_manager->texture_height;
     obj->perp_dist = perp_wall_dist;
   }
+  PROFILE_END();
 }
 
 void renderer_render_player_2d(Renderer *renderer, Player *player){
@@ -204,6 +206,7 @@ void renderer_render_player_2d(Renderer *renderer, Player *player){
 }
 
 void renderer_flush_queue(Renderer * renderer){
+  PROFILE_BEGIN("Flush");
   if (!renderer){
     printf("Invalid renderer pointer inside of render_render_queue\n");
     return;
@@ -218,12 +221,13 @@ void renderer_flush_queue(Renderer * renderer){
   }
 
   renderqueue_clear(renderer->render_queue);
+  PROFILE_END();
 }
 
 void renderer_render(Renderer *renderer, Player *player, Map *map){
   SDL_SetRenderDrawColor(renderer->sdl_renderer, 150, 150, 220, 255);
   SDL_RenderClear(renderer->sdl_renderer);
-
+  
   SDL_Rect rect;
   rect.x = 0;
   rect.y = renderer->height / 2;
