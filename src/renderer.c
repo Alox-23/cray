@@ -28,7 +28,7 @@ Renderer* renderer_create(){
     return NULL;
   }
 
-  renderer->texture_manager = texturemanager_create(5, renderer->sdl_renderer, 20, 20);
+  renderer->texture_manager = texturemanager_create(renderer->sdl_renderer, 32, 32);
   if (!renderer->texture_manager){
     return NULL;
   }
@@ -54,6 +54,7 @@ void renderer_render_map_2d(Renderer *renderer, Map *map){
   }
 
   SDL_Rect rect;
+  SDL_Rect src;
   for (size_t y = 0; y < map->height; y++){
     for (size_t x = 0; x < map->width; x++){
       int map_val = map_get_value(map, x, y);
@@ -62,15 +63,17 @@ void renderer_render_map_2d(Renderer *renderer, Map *map){
         rect.y = y * renderer->scale_2d;
         rect.w = renderer->scale_2d;
         rect.h = renderer->scale_2d;
+        
+        src = texturemanager_get_texcoord(renderer->texture_manager, map_val);
 
-        SDL_RenderCopy(renderer->sdl_renderer, texturemanager_get_texture(renderer->texture_manager, map_val), NULL, &rect);
+        SDL_RenderCopy(renderer->sdl_renderer, texturemanager_get_atlas(renderer->texture_manager), &src, &rect);
       }
     }
   }
 }
 
 void renderer_raycast(Renderer* renderer, Map *map, Player *player){
-  PROFILE_BEGIN("Raycasting");
+  PROFILE_BEGIN("CRAY");
   if (!renderer || !map || !player){
     printf("Invalid pointer passed to renderer_raycast\n");
     return;
@@ -205,25 +208,41 @@ void renderer_render_player_2d(Renderer *renderer, Player *player){
   SDL_RenderDrawLine(renderer->sdl_renderer, line_start_x, line_start_y, line_end_x, line_end_y);
 }
 
-void renderer_flush_queue(Renderer * renderer){
-  if (!renderer){
-    printf("Invalid renderer pointer inside of render_render_queue\n");
-    return;
-  }
-  
-  PROFILE_BEGIN("DSORT");
-  renderqueue_sort(renderer->render_queue); 
-  PROFILE_END();
+void renderer_flush_queue(Renderer* renderer) {
+    if (!renderer || !renderer->texture_manager) return;
+    
+    SDL_Texture* atlas = texturemanager_get_atlas(renderer->texture_manager);
+    if (!atlas) return;
+   
+    PROFILE_BEGIN("SORT");
+    renderqueue_sort(renderer->render_queue);
+    PROFILE_END();
 
-  PROFILE_BEGIN("RENDER");
-  RenderObject* obj;
-  for (int i = 0; i < renderer->render_queue->count; i++){
-    obj = &renderer->render_queue->render_object_array[i];
-    SDL_RenderCopy(renderer->sdl_renderer, texturemanager_get_texture(renderer->texture_manager, obj->texture_id), &obj->src_rect, &obj->dest_rect);
-  }
-  PROFILE_END();
-  renderqueue_clear(renderer->render_queue);
-  
+    PROFILE_BEGIN("REND");
+    int current_texture_id = -1;
+    SDL_Rect current_src_rect;
+    SDL_Rect final_src_rect;
+    RenderObject* entity;
+    for (int i = 0; i < renderer->render_queue->count; i++) {
+        entity = &renderer->render_queue->render_object_array[i];
+        
+        if (entity->texture_id != current_texture_id) {
+            current_texture_id = entity->texture_id;
+            current_src_rect = texturemanager_get_texcoord(
+                renderer->texture_manager, current_texture_id);
+        }
+        
+        final_src_rect = current_src_rect;
+        final_src_rect.x += entity->src_rect.x;
+        final_src_rect.y += entity->src_rect.y;
+        final_src_rect.w = entity->src_rect.w;
+        final_src_rect.h = entity->src_rect.h;
+        
+        SDL_RenderCopy(renderer->sdl_renderer, atlas, &final_src_rect, &entity->dest_rect);
+    }
+    PROFILE_END();
+
+    renderqueue_clear(renderer->render_queue);
 }
 
 void renderer_render(Renderer *renderer, Player *player, Map *map){
