@@ -206,22 +206,24 @@ void renderer_render_player_2d(Renderer *renderer, Player *player){
 }
 
 void renderer_flush_queue(Renderer * renderer){
-  PROFILE_BEGIN("Flush");
   if (!renderer){
     printf("Invalid renderer pointer inside of render_render_queue\n");
     return;
   }
   
-  renderqueue_sort(renderer->render_queue);
- 
+  PROFILE_BEGIN("DSORT");
+  renderqueue_sort(renderer->render_queue); 
+  PROFILE_END();
+
+  PROFILE_BEGIN("RENDER");
   RenderObject* obj;
   for (int i = 0; i < renderer->render_queue->count; i++){
     obj = &renderer->render_queue->render_object_array[i];
     SDL_RenderCopy(renderer->sdl_renderer, texturemanager_get_texture(renderer->texture_manager, obj->texture_id), &obj->src_rect, &obj->dest_rect);
   }
-
-  renderqueue_clear(renderer->render_queue);
   PROFILE_END();
+  renderqueue_clear(renderer->render_queue);
+  
 }
 
 void renderer_render(Renderer *renderer, Player *player, Map *map){
