@@ -238,6 +238,10 @@ void renderer_flush_queue(Renderer* renderer) {
         final_src_rect.w = entity->src_rect.w;
         final_src_rect.h = entity->src_rect.h;
         
+        printf("Texture_Rect: %i, %i, %i, %i\n", current_src_rect.x, current_src_rect.y, current_src_rect.w, current_src_rect.h);
+        printf("Final_Rect  : %i, %i, %i, %i\n", final_src_rect.x, final_src_rect.y, final_src_rect.w, final_src_rect.h);
+        
+      
         SDL_RenderCopy(renderer->sdl_renderer, atlas, &final_src_rect, &entity->dest_rect);
     }
     PROFILE_END();

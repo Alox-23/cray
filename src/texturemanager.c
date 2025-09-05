@@ -109,8 +109,8 @@ int texturemanager_add_texture(TextureManager* tm, SDL_Renderer* renderer, const
     SDL_Rect dest_rect = {
         .x = tm->current_x,
         .y = tm->current_y,
-        .w = converted->w,
-        .h = converted->h
+        .w = tm->texture_width,
+        .h = tm->texture_height
     };
     
     SDL_Texture* temp_tex = SDL_CreateTextureFromSurface(renderer, converted);
