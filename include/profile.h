@@ -6,7 +6,7 @@
 #include <time.h>
 #include <unistd.h> // for usleep
 
-#define PROFILING
+//#define PROFILING
 
 #ifdef PROFILING
 

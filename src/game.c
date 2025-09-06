@@ -16,6 +16,8 @@ Game* game_create(){
   game->map = map_create(20, 20);
   if (!game->map) return NULL;
 
+  printf("%i\n", map_get_value(game->map, 19, 19));
+
   game->keystate = SDL_GetKeyboardState(NULL);
   
   game->state = 1;

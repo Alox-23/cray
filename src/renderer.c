@@ -64,7 +64,7 @@ void renderer_render_map_2d(Renderer *renderer, Map *map){
         rect.w = renderer->scale_2d;
         rect.h = renderer->scale_2d;
         
-        src = texturemanager_get_texcoord(renderer->texture_manager, map_val);
+        src = texturemanager_get_texcoord(renderer->texture_manager, map_val-1);
 
         SDL_RenderCopy(renderer->sdl_renderer, texturemanager_get_atlas(renderer->texture_manager), &src, &rect);
       }
@@ -160,7 +160,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
     collision_x = player->pos.x + perp_wall_dist * ray_dir.x;
     collision_y = player->pos.y + perp_wall_dist * ray_dir.y;
     
-    texture_id = map_get_value(map, map_x, map_y);
+    texture_id = map_get_value(map, map_x, map_y)-1;
 
     wall_x; //where exacly on the tile did the ray hit relative to the tiles left-most value
     if (side == 0) wall_x = player->pos.y + perp_wall_dist * ray_dir.y;
@@ -238,8 +238,8 @@ void renderer_flush_queue(Renderer* renderer) {
         final_src_rect.w = entity->src_rect.w;
         final_src_rect.h = entity->src_rect.h;
         
-        printf("Texture_Rect: %i, %i, %i, %i\n", current_src_rect.x, current_src_rect.y, current_src_rect.w, current_src_rect.h);
-        printf("Final_Rect  : %i, %i, %i, %i\n", final_src_rect.x, final_src_rect.y, final_src_rect.w, final_src_rect.h);
+        //printf("Texture_Rect: %i, %i, %i, %i\n", current_src_rect.x, current_src_rect.y, current_src_rect.w, current_src_rect.h);
+        //printf("Final_Rect  : %i, %i, %i, %i\n", final_src_rect.x, final_src_rect.y, final_src_rect.w, final_src_rect.h);
         
       
         SDL_RenderCopy(renderer->sdl_renderer, atlas, &final_src_rect, &entity->dest_rect);
@@ -247,6 +247,21 @@ void renderer_flush_queue(Renderer* renderer) {
     PROFILE_END();
 
     renderqueue_clear(renderer->render_queue);
+}
+
+void renderer_render_texture_atlas(Renderer* renderer){
+  if (!renderer){
+    return;
+  }
+
+  SDL_Rect rect = {
+    .x = renderer->width - 300,
+    .y = renderer->height - 300,
+    .w = 300,
+    .h = 300,
+  };
+
+  SDL_RenderCopy(renderer->sdl_renderer, texturemanager_get_atlas(renderer->texture_manager), NULL, &rect);
 }
 
 void renderer_render(Renderer *renderer, Player *player, Map *map){
@@ -267,6 +282,8 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
  
   renderer_render_map_2d(renderer, map);
   renderer_render_player_2d(renderer, player);
+
+  renderer_render_texture_atlas(renderer);
   
   SDL_RenderPresent(renderer->sdl_renderer);
 }
