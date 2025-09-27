@@ -1,7 +1,7 @@
 #include "../include/map.h"
 #include <stdio.h>
 
-Map* map_create(sizet depth, size_t width, size_t height){
+Map* map_create(size_t depth, size_t width, size_t height){
   Map* map = malloc(sizeof(Map));  
   if (map == NULL || width == 0 || height == 0 || depth == 0){
     return NULL;
@@ -18,7 +18,7 @@ Map* map_create(sizet depth, size_t width, size_t height){
 
   for (size_t z = 0; z < map->depth; z++){
     for (size_t x = 0; x < map->width; x++){
-      for (size_t y = 0; y < map->height: y++){
+      for (size_t y = 0; y < map->height; y++){
         //set_map_value(map, x, y, (y/(height/5))+1);
         if (y == 0 || y == map->height-1 || x == 0 || x == map->width-1){
           map_set_value(map, z, x, y, (y/4)+1);

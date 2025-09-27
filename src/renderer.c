@@ -57,7 +57,7 @@ void renderer_render_map_2d(Renderer *renderer, Map *map){
   SDL_Rect src;
   for (size_t y = 0; y < map->height; y++){
     for (size_t x = 0; x < map->width; x++){
-      int map_val = map_get_value(map, x, y);
+      int map_val = map_get_value(map, 0, x, y);
       if (map_val){
         rect.x = x * renderer->scale_2d;
         rect.y = y * renderer->scale_2d;
@@ -127,62 +127,63 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
       step_y = 1;
       side_dist.y = (map_y + 1 - player->pos.y) * delta_dist.y;
     }
+    for (int z_level = 0; z_level < map->depth; z_level++){
+      for (int i = 0; i < RENDER_DISTANCE; i++){
+        if (side_dist.x < side_dist.y){
+          side_dist.x += delta_dist.x;
+          map_x += step_x;
+          side = 0;
+        }
+        else{
+          side_dist.y += delta_dist.y;
+          map_y += step_y;
+          side = 1;
+        }
 
-    for (int i = 0; i < RENDER_DISTANCE; i++){
-      if (side_dist.x < side_dist.y){
-        side_dist.x += delta_dist.x;
-        map_x += step_x;
-        side = 0;
+        if (map_get_value(map, z_level, map_x, map_y) > 0){
+          hit = true;
+          break;
+        }
+      }
+      
+      if (!hit) continue;
+      
+      if (side == 0){
+        perp_wall_dist = side_dist.x - delta_dist.x;
       }
       else{
-        side_dist.y += delta_dist.y;
-        map_y += step_y;
-        side = 1;
+        perp_wall_dist = side_dist.y - delta_dist.y;
       }
 
-      if (map_get_value(map, map_x, map_y) > 0){
-        hit = true;
-        break;
-      }
-    }
+      line_height = renderer->height / (perp_wall_dist + 0.00001);
     
-    if (!hit) continue;
-    
-    if (side == 0){
-      perp_wall_dist = side_dist.x - delta_dist.x;
+      collision_x = player->pos.x + perp_wall_dist * ray_dir.x;
+      collision_y = player->pos.y + perp_wall_dist * ray_dir.y;
+      
+      texture_id = map_get_value(map, z_level, map_x, map_y)-1;
+
+      wall_x; //where exacly on the tile did the ray hit relative to the tiles left-most value
+      if (side == 0) wall_x = player->pos.y + perp_wall_dist * ray_dir.y;
+      else wall_x = player->pos.x + perp_wall_dist * ray_dir.x;
+      wall_x -= floor(wall_x);
+
+      texture_x = (int)(wall_x * renderer->texture_manager->texture_width);
+      if (side == 0 && ray_dir.x > 0) texture_x = renderer->texture_manager->texture_width - texture_x - 1;
+      if (side == 1 && ray_dir.y < 0) texture_x = renderer->texture_manager->texture_width - texture_x - 1;
+      obj = renderqueue_get_object(renderer->render_queue);
+      if (!obj) break;
+
+      obj->texture_id = texture_id;
+      obj->dest_rect.x = x;
+      obj->dest_rect.y = renderer->height / 2 - line_height / 2 - (line_height * z_level);
+      obj->dest_rect.w = 1;
+      obj->dest_rect.h = line_height;
+      obj->src_rect.x = texture_x;
+      obj->src_rect.y = 0;
+      obj->src_rect.w = 1;
+      obj->src_rect.h = renderer->texture_manager->texture_height;
+      obj->perp_dist = perp_wall_dist;
     }
-    else{
-      perp_wall_dist = side_dist.y - delta_dist.y;
-    }
-
-    line_height = renderer->height / (perp_wall_dist + 0.00001);
-  
-    collision_x = player->pos.x + perp_wall_dist * ray_dir.x;
-    collision_y = player->pos.y + perp_wall_dist * ray_dir.y;
-    
-    texture_id = map_get_value(map, map_x, map_y)-1;
-
-    wall_x; //where exacly on the tile did the ray hit relative to the tiles left-most value
-    if (side == 0) wall_x = player->pos.y + perp_wall_dist * ray_dir.y;
-    else wall_x = player->pos.x + perp_wall_dist * ray_dir.x;
-    wall_x -= floor(wall_x);
-
-    texture_x = (int)(wall_x * renderer->texture_manager->texture_width);
-    if (side == 0 && ray_dir.x > 0) texture_x = renderer->texture_manager->texture_width - texture_x - 1;
-    if (side == 1 && ray_dir.y < 0) texture_x = renderer->texture_manager->texture_width - texture_x - 1;
-    obj = renderqueue_get_object(renderer->render_queue);
-    if (!obj) break;
-
-    obj->texture_id = texture_id;
-    obj->dest_rect.x = x;
-    obj->dest_rect.y = renderer->height / 2 - line_height / 2;
-    obj->dest_rect.w = 1;
-    obj->dest_rect.h = line_height;
-    obj->src_rect.x = texture_x;
-    obj->src_rect.y = 0;
-    obj->src_rect.w = 1;
-    obj->src_rect.h = renderer->texture_manager->texture_height;
-    obj->perp_dist = perp_wall_dist;
   }
   PROFILE_END();
 }
