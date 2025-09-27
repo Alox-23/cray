@@ -4,7 +4,6 @@ TextureManager* texturemanager_create(SDL_Renderer* renderer, int texture_width,
     TextureManager* tm = malloc(sizeof(TextureManager));
     if (!tm) return NULL;
     
-    // Create the master atlas texture
     tm->texture = SDL_CreateTexture(renderer, 
                                    SDL_PIXELFORMAT_RGBA32,
                                    SDL_TEXTUREACCESS_TARGET,
