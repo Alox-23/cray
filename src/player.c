@@ -7,6 +7,7 @@ Player* player_create(){
   
   p->pos.x = 5;
   p->pos.y = 5;
+  p->pos_z = 0; //separate variable not store in Vector2 pos;
 
   p->dir.x = 1;
   p->dir.y = 0;
@@ -34,6 +35,13 @@ void player_handle_input(Player *player, const Uint8 *keystate){
   }
   if (keystate[SDL_SCANCODE_D]){
     player->vel = scale(rotate(player->dir, -3*M_PI/2), SPEED);
+  }
+
+  if (keystate[SDL_SCANCODE_F]){
+    player->pos_z -= 0.1;
+  }
+  if (keystate[SDL_SCANCODE_R]){
+    player->pos_z += 0.1;
   }
 
   player->a_vel = 0;

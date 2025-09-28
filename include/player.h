@@ -6,14 +6,15 @@
 #include <SDL2/SDL.h>
 
 #define ROTATION_SPEED 6
-#define SPEED 5
+#define SPEED 10
 
 typedef struct {
   Vector2 pos;
   Vector2 dir;
   Vector2 vel;
   Vector2 plane;
-  SDL_Rect rect;  
+  SDL_Rect rect;
+  double pos_z;
   double a_vel;
   double angle;
   double player_size;

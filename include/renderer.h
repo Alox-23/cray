@@ -9,7 +9,7 @@
 #include "renderqueue.h"
 #include "renderobject.h"
 
-#define RENDER_DISTANCE 50
+#define RENDER_DISTANCE 100
 
 typedef struct{
   double scale_2d;

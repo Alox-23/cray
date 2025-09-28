@@ -33,16 +33,16 @@ Renderer* renderer_create(){
     return NULL;
   }
 
-  renderer->render_queue = renderqueue_create(4096);
+  renderer->render_queue = renderqueue_create(20000);
   if (!renderer->render_queue){
     return NULL;
   }
 
-  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/texture.jpeg");
-  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/texture2.jpeg");
-  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/texture3.png");
-  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/texture4.jpeg");
-  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/texture5.jpeg");
+  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/default.png");
+  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/default.png");
+  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/default.png");
+  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/default.png");
+  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/default.png");
   
   return renderer;
 }
@@ -176,7 +176,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
 
       obj->texture_id = texture_id;
       obj->dest_rect.x = x;
-      obj->dest_rect.y = renderer->height / 2 - line_height / 2 - (line_height * z_level);
+      obj->dest_rect.y = renderer->height / 2 - line_height / 2 - (line_height * (z_level - player->pos_z));
       obj->dest_rect.w = 1;
       obj->dest_rect.h = line_height;
       obj->src_rect.x = texture_x;
@@ -285,7 +285,7 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   renderer_render_map_2d(renderer, map);
   renderer_render_player_2d(renderer, player);
 
-  renderer_render_texture_atlas(renderer);
+  //renderer_render_texture_atlas(renderer);
   
   SDL_RenderPresent(renderer->sdl_renderer);
 }
