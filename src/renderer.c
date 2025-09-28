@@ -33,7 +33,7 @@ Renderer* renderer_create(){
     return NULL;
   }
 
-  renderer->render_queue = renderqueue_create(2048);
+  renderer->render_queue = renderqueue_create(4096);
   if (!renderer->render_queue){
     return NULL;
   }
@@ -99,35 +99,36 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
   double wall_x;
   int texture_x;
   for (int x = 0; x < renderer->width; x++){
-    camera_x = 2 * x / (double)renderer->width - 1;
-    ray_dir.x = player->dir.x + player->plane.x * camera_x;
-    ray_dir.y = player->dir.y + player->plane.y * camera_x;
-
-    map_x = (int)player->pos.x;
-    map_y = (int)player->pos.y;
-
-    delta_dist.x = (ray_dir.x == 0) ? 1e30 : fabs(1 / ray_dir.x);
-    delta_dist.y = (ray_dir.y == 0) ? 1e30 : fabs(1 / ray_dir.y);
-
-    hit = false;
-
-    if (ray_dir.x < 0){
-      step_x = -1;
-      side_dist.x = (player->pos.x - map_x) * delta_dist.x;
-    }
-    else{
-      step_x = 1;
-      side_dist.x = (map_x + 1 - player->pos.x) * delta_dist.x;
-    }
-    if (ray_dir.y < 0){
-      step_y = -1;
-      side_dist.y = (player->pos.y - map_y) * delta_dist.y;
-    }
-    else{
-      step_y = 1;
-      side_dist.y = (map_y + 1 - player->pos.y) * delta_dist.y;
-    }
     for (int z_level = 0; z_level < map->depth; z_level++){
+      camera_x = 2 * x / (double)renderer->width - 1;
+      ray_dir.x = player->dir.x + player->plane.x * camera_x;
+      ray_dir.y = player->dir.y + player->plane.y * camera_x;
+
+      map_x = (int)player->pos.x;
+      map_y = (int)player->pos.y;
+
+      delta_dist.x = (ray_dir.x == 0) ? 1e30 : fabs(1 / ray_dir.x);
+      delta_dist.y = (ray_dir.y == 0) ? 1e30 : fabs(1 / ray_dir.y);
+
+      hit = false;
+
+      if (ray_dir.x < 0){
+        step_x = -1;
+        side_dist.x = (player->pos.x - map_x) * delta_dist.x;
+      }
+      else{
+        step_x = 1;
+        side_dist.x = (map_x + 1 - player->pos.x) * delta_dist.x;
+      }
+      if (ray_dir.y < 0){
+        step_y = -1;
+        side_dist.y = (player->pos.y - map_y) * delta_dist.y;
+      }
+      else{
+        step_y = 1;
+        side_dist.y = (map_y + 1 - player->pos.y) * delta_dist.y;
+      }
+      
       for (int i = 0; i < RENDER_DISTANCE; i++){
         if (side_dist.x < side_dist.y){
           side_dist.x += delta_dist.x;
