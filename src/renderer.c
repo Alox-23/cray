@@ -38,12 +38,20 @@ Renderer* renderer_create(){
     return NULL;
   }
 
+  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/texture.jpeg");
+  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/texture2.jpeg");
+  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/texture3.png");
+  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/texture4.jpeg");
+  texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/texture5.jpeg");
+
+  /*
   texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/default.png");
   texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/default.png");
   texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/default.png");
   texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/default.png");
   texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/default.png");
-  
+  */ 
+
   return renderer;
 }
 
@@ -175,6 +183,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
       if (!obj) break;
 
       obj->texture_id = texture_id;
+      obj->alpha_value = side * 100;
       obj->dest_rect.x = x;
       obj->dest_rect.y = renderer->height / 2 - line_height / 2 - (line_height * (z_level - player->pos_z));
       obj->dest_rect.w = 1;
@@ -242,9 +251,9 @@ void renderer_flush_queue(Renderer* renderer) {
         
         //printf("Texture_Rect: %i, %i, %i, %i\n", current_src_rect.x, current_src_rect.y, current_src_rect.w, current_src_rect.h);
         //printf("Final_Rect  : %i, %i, %i, %i\n", final_src_rect.x, final_src_rect.y, final_src_rect.w, final_src_rect.h);
-        
-      
+        SDL_SetTextureAlphaMod(atlas, entity->alpha_value);
         SDL_RenderCopy(renderer->sdl_renderer, atlas, &final_src_rect, &entity->dest_rect);
+        SDL_SetTextureAlphaMod(atlas, 255);
     }
     PROFILE_END();
 

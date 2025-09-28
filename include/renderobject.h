@@ -7,6 +7,7 @@
 typedef struct {
   SDL_Rect dest_rect;
   SDL_Rect src_rect;
+  Uint8 alpha_value;
   double perp_dist;
   int texture_id;
 } RenderObject;
