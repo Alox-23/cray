@@ -14,7 +14,9 @@ TextureManager* texturemanager_create(SDL_Renderer* renderer, int texture_width,
         free(tm);
         return NULL;
     }
-    
+
+    SDL_SetTextureBlendMode(tm->texture, SDL_BLENDMODE_BLEND);
+
     // Initialize atlas to transparent
     SDL_SetRenderTarget(renderer, tm->texture);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);

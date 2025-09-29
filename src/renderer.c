@@ -183,7 +183,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
       if (!obj) break;
 
       obj->texture_id = texture_id;
-      obj->alpha_value = side * 100;
+      obj->alpha_value = side * 100 + 255;
       obj->dest_rect.x = x;
       obj->dest_rect.y = renderer->height / 2 - line_height / 2 - (line_height * (z_level - player->pos_z));
       obj->dest_rect.w = 1;
@@ -220,44 +220,51 @@ void renderer_render_player_2d(Renderer *renderer, Player *player){
 }
 
 void renderer_flush_queue(Renderer* renderer) {
-    if (!renderer || !renderer->texture_manager) return;
+  if (!renderer || !renderer->texture_manager) return;
+  
+  SDL_Texture* atlas = texturemanager_get_atlas(renderer->texture_manager);
+  if (!atlas) return;
+ 
+  PROFILE_BEGIN("SORT");
+  renderqueue_sort(renderer->render_queue);
+  PROFILE_END();
+
+  PROFILE_BEGIN("REND");
+  int current_texture_id = -1;
+  int current_alpha = 255;
+
+  SDL_Rect current_src_rect;
+  SDL_Rect final_src_rect;
+  RenderObject* entity;
+  for (int i = 0; i < renderer->render_queue->count; i++) {
+    entity = &renderer->render_queue->render_object_array[i];
     
-    SDL_Texture* atlas = texturemanager_get_atlas(renderer->texture_manager);
-    if (!atlas) return;
-   
-    PROFILE_BEGIN("SORT");
-    renderqueue_sort(renderer->render_queue);
-    PROFILE_END();
-
-    PROFILE_BEGIN("REND");
-    int current_texture_id = -1;
-    SDL_Rect current_src_rect;
-    SDL_Rect final_src_rect;
-    RenderObject* entity;
-    for (int i = 0; i < renderer->render_queue->count; i++) {
-        entity = &renderer->render_queue->render_object_array[i];
-        
-        if (entity->texture_id != current_texture_id) {
-            current_texture_id = entity->texture_id;
-            current_src_rect = texturemanager_get_texcoord(
-                renderer->texture_manager, current_texture_id);
-        }
-        
-        final_src_rect = current_src_rect;
-        final_src_rect.x += entity->src_rect.x;
-        final_src_rect.y += entity->src_rect.y;
-        final_src_rect.w = entity->src_rect.w;
-        final_src_rect.h = entity->src_rect.h;
-        
-        //printf("Texture_Rect: %i, %i, %i, %i\n", current_src_rect.x, current_src_rect.y, current_src_rect.w, current_src_rect.h);
-        //printf("Final_Rect  : %i, %i, %i, %i\n", final_src_rect.x, final_src_rect.y, final_src_rect.w, final_src_rect.h);
-        SDL_SetTextureAlphaMod(atlas, entity->alpha_value);
-        SDL_RenderCopy(renderer->sdl_renderer, atlas, &final_src_rect, &entity->dest_rect);
-        SDL_SetTextureAlphaMod(atlas, 255);
+    if (entity->texture_id != current_texture_id) {
+        current_texture_id = entity->texture_id;
+        current_src_rect = texturemanager_get_texcoord(
+            renderer->texture_manager, current_texture_id);
     }
-    PROFILE_END();
+    
+    final_src_rect = current_src_rect;
+    final_src_rect.x += entity->src_rect.x;
+    final_src_rect.y += entity->src_rect.y;
+    final_src_rect.w = entity->src_rect.w;
+    final_src_rect.h = entity->src_rect.h;
+   
+    SDL_RenderDrawRect(renderer->sdl_renderer, &entity->dest_rect);
 
-    renderqueue_clear(renderer->render_queue);
+    if (entity->alpha_value != current_alpha){
+      SDL_SetTextureAlphaMod(atlas, entity->alpha_value);
+      SDL_RenderCopy(renderer->sdl_renderer, atlas, &final_src_rect, &entity->dest_rect);
+      current_alpha = entity->alpha_value;
+    }
+    else{
+      SDL_RenderCopy(renderer->sdl_renderer, atlas, &final_src_rect, &entity->dest_rect);
+    }
+  }
+  PROFILE_END();
+
+  renderqueue_clear(renderer->render_queue);
 }
 
 void renderer_render_texture_atlas(Renderer* renderer){
