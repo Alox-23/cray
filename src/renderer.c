@@ -182,10 +182,12 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
       obj = renderqueue_get_object(renderer->render_queue);
       if (!obj) break;
 
+      double vertical_offset = renderer->height * (z_level - player->pos_z) / (perp_wall_dist + 0.00001) - z_level;
+      
       obj->texture_id = texture_id;
       obj->alpha_value = side * 100 + 255;
       obj->dest_rect.x = x;
-      obj->dest_rect.y = renderer->height / 2 - line_height / 2 - (line_height * (z_level - player->pos_z));
+      obj->dest_rect.y = (renderer->height - line_height) / 2 - vertical_offset;
       obj->dest_rect.w = 1;
       obj->dest_rect.h = line_height;
       obj->src_rect.x = texture_x;
@@ -250,9 +252,7 @@ void renderer_flush_queue(Renderer* renderer) {
     final_src_rect.y += entity->src_rect.y;
     final_src_rect.w = entity->src_rect.w;
     final_src_rect.h = entity->src_rect.h;
-   
     SDL_RenderDrawRect(renderer->sdl_renderer, &entity->dest_rect);
-
     if (entity->alpha_value != current_alpha){
       SDL_SetTextureAlphaMod(atlas, entity->alpha_value);
       SDL_RenderCopy(renderer->sdl_renderer, atlas, &final_src_rect, &entity->dest_rect);

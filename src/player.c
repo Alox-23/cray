@@ -38,10 +38,10 @@ void player_handle_input(Player *player, const Uint8 *keystate){
   }
 
   if (keystate[SDL_SCANCODE_F]){
-    player->pos_z -= 0.1;
+    player->pos_z -= 0.01;
   }
   if (keystate[SDL_SCANCODE_R]){
-    player->pos_z += 0.1;
+    player->pos_z += 0.01;
   }
 
   player->a_vel = 0;
