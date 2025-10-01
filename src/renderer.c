@@ -185,7 +185,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
       double vertical_offset = renderer->height * (z_level - player->pos_z) / (perp_wall_dist + 0.00001) - z_level;
       
       obj->texture_id = texture_id;
-      obj->alpha_value = side * 100 + 255;
+      obj->alpha_value = 1;
       obj->dest_rect.x = x;
       obj->dest_rect.y = (renderer->height - line_height) / 2 - vertical_offset;
       obj->dest_rect.w = 1;
@@ -227,43 +227,31 @@ void renderer_flush_queue(Renderer* renderer) {
   SDL_Texture* atlas = texturemanager_get_atlas(renderer->texture_manager);
   if (!atlas) return;
  
-  PROFILE_BEGIN("SORT");
   renderqueue_sort(renderer->render_queue);
-  PROFILE_END();
 
-  PROFILE_BEGIN("REND");
-  int current_texture_id = -1;
-  int current_alpha = 255;
-
-  SDL_Rect current_src_rect;
   SDL_Rect final_src_rect;
   RenderObject* entity;
   for (int i = 0; i < renderer->render_queue->count; i++) {
     entity = &renderer->render_queue->render_object_array[i];
-    
-    if (entity->texture_id != current_texture_id) {
-        current_texture_id = entity->texture_id;
-        current_src_rect = texturemanager_get_texcoord(
-            renderer->texture_manager, current_texture_id);
-    }
-    
-    final_src_rect = current_src_rect;
+
+    float final_brightness = 1 / entity->perp_dist;
+    SDL_Color final_color = {
+      .r = 255 * final_brightness,
+      .g = 255 * final_brightness,
+      .b = 255 * final_brightness, 
+      .a = 255
+    };
+
+    SDL_SetTextureColorMod(atlas, final_color.r, final_color.g, final_color.b);
+
+    final_src_rect = texturemanager_get_texcoord(renderer->texture_manager, entity->texture_id);
     final_src_rect.x += entity->src_rect.x;
     final_src_rect.y += entity->src_rect.y;
     final_src_rect.w = entity->src_rect.w;
     final_src_rect.h = entity->src_rect.h;
-    SDL_RenderDrawRect(renderer->sdl_renderer, &entity->dest_rect);
-    if (entity->alpha_value != current_alpha){
-      SDL_SetTextureAlphaMod(atlas, entity->alpha_value);
-      SDL_RenderCopy(renderer->sdl_renderer, atlas, &final_src_rect, &entity->dest_rect);
-      current_alpha = entity->alpha_value;
-    }
-    else{
-      SDL_RenderCopy(renderer->sdl_renderer, atlas, &final_src_rect, &entity->dest_rect);
-    }
+    
+    SDL_RenderCopy(renderer->sdl_renderer, atlas, &final_src_rect, &entity->dest_rect);
   }
-  PROFILE_END();
-
   renderqueue_clear(renderer->render_queue);
 }
 
