@@ -12,6 +12,13 @@
 #define RENDER_DISTANCE 100
 
 typedef struct{
+  float m;
+  float c;
+  float mxb;
+  float mnb;
+}FogSetting;
+
+typedef struct{
   double scale_2d;
   int width;
   int height;
@@ -24,6 +31,7 @@ typedef struct{
 
 Renderer* renderer_create();
 void renderer_render_texture_atlas(Renderer* renderer);
+float renderer_calc_fog_brightness(FogSetting s, double var);
 void renderer_render_player_2d(Renderer *renderer, Player *player);
 void renderer_render_map_2d(Renderer *renderer, Map *map);
 void renderer_raycast(Renderer* renderer, Map *map, Player *player);

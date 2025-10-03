@@ -33,7 +33,7 @@ Renderer* renderer_create(){
     return NULL;
   }
 
-  renderer->render_queue = renderqueue_create(20000);
+  renderer->render_queue = renderqueue_create(16384);
   if (!renderer->render_queue){
     return NULL;
   }
@@ -221,6 +221,13 @@ void renderer_render_player_2d(Renderer *renderer, Player *player){
   SDL_RenderDrawLine(renderer->sdl_renderer, line_start_x, line_start_y, line_end_x, line_end_y);
 }
 
+float renderer_calc_fog_brightness(FogSetting s, double var){
+  float fb = s.c / (1 + var*s.m);
+  if (fb > s.mxb) return s.mxb;
+  if (fb < s.mnb) return s.mnb;
+  return fb;
+} 
+
 void renderer_flush_queue(Renderer* renderer) {
   if (!renderer || !renderer->texture_manager) return;
   
@@ -234,11 +241,22 @@ void renderer_flush_queue(Renderer* renderer) {
   for (int i = 0; i < renderer->render_queue->count; i++) {
     entity = &renderer->render_queue->render_object_array[i];
 
-    float final_brightness = 1 / entity->perp_dist;
+    FogSetting r_settings = {0.5, 5, 0.8, 0.1};
+    FogSetting g_settings = {0.5, 5, 0.8, 0.1};
+    FogSetting b_settings = {0.4, 5, 0.8, 0.1};
+    /*
+    float time = SDL_GetTicks() * 0.001f;
+    FogSetting r_settings = {0.5 + 0.3*sinf(time), 2, 0.9, 0.1};
+    FogSetting g_settings = {0.5 + 0.3*sinf(time + 2.0f), 3, 0.9, 0.1};  
+    FogSetting b_settings = {0.5 + 0.3*sinf(time + 4.0f), 4, 0.9, 0.1};
+    */
+    float rb = renderer_calc_fog_brightness(r_settings, entity->perp_dist);
+    float gb = renderer_calc_fog_brightness(g_settings, entity->perp_dist);
+    float bb = renderer_calc_fog_brightness(b_settings, entity->perp_dist);
     SDL_Color final_color = {
-      .r = 255 * final_brightness,
-      .g = 255 * final_brightness,
-      .b = 255 * final_brightness, 
+      .r = 255 * rb,
+      .g = 255 * gb,
+      .b = 255 * bb, 
       .a = 255
     };
 
@@ -286,8 +304,8 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   renderer_raycast(renderer, map, player);
   renderer_flush_queue(renderer);
  
-  renderer_render_map_2d(renderer, map);
-  renderer_render_player_2d(renderer, player);
+  //renderer_render_map_2d(renderer, map);
+  //renderer_render_player_2d(renderer, player);
 
   //renderer_render_texture_atlas(renderer);
   

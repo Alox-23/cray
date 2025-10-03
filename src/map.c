@@ -21,7 +21,7 @@ Map* map_create(size_t depth, size_t width, size_t height){
       for (size_t y = 0; y < map->height; y++){
         //set_map_value(map, x, y, (y/(height/5))+1);
         if(x % 4 == 0 && y % 4 == 0){
-          map_set_value(map, z, x, y, 1);
+          map_set_value(map, z, x, y, (y/(height/5))+1);
         }
         else {
           map_set_value(map, z, x, y, 0);
