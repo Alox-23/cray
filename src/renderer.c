@@ -107,7 +107,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
   double wall_x;
   int texture_x;
   for (int x = 0; x < renderer->width; x++){
-    for (int z_level = 0; z_level < map->depth; z_level++){
+    for (size_t z_level = 0; z_level < map->depth; z_level++){
       camera_x = 2 * x / (double)renderer->width - 1;
       ray_dir.x = player->dir.x + player->plane.x * camera_x;
       ray_dir.y = player->dir.y + player->plane.y * camera_x;
@@ -171,7 +171,6 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
       
       texture_id = map_get_value(map, z_level, map_x, map_y)-1;
 
-      wall_x; //where exacly on the tile did the ray hit relative to the tiles left-most value
       if (side == 0) wall_x = player->pos.y + perp_wall_dist * ray_dir.y;
       else wall_x = player->pos.x + perp_wall_dist * ray_dir.x;
       wall_x -= floor(wall_x);
@@ -185,7 +184,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
       double vertical_offset = renderer->height * (z_level - player->pos_z) / (perp_wall_dist + 0.00001) - z_level;
       
       obj->texture_id = texture_id;
-      obj->alpha_value = 1;
+      obj->alpha_value = side;
       obj->dest_rect.x = x;
       obj->dest_rect.y = (renderer->height - line_height) / 2 - vertical_offset;
       obj->dest_rect.w = 1;
@@ -238,13 +237,30 @@ void renderer_flush_queue(Renderer* renderer) {
 
   SDL_Rect final_src_rect;
   RenderObject* entity;
-  for (int i = 0; i < renderer->render_queue->count; i++) {
+  FogSetting r_settings = {0.1, 4, 1, 0.4};
+  FogSetting g_settings = {0.1, 4, 1, 0.4};
+  FogSetting b_settings = {0.1, 5, 1, 0.4};
+  for (size_t i = 0; i < renderer->render_queue->count; i++) {
     entity = &renderer->render_queue->render_object_array[i];
-
-    FogSetting r_settings = {0.5, 5, 0.8, 0.1};
-    FogSetting g_settings = {0.5, 5, 0.8, 0.1};
-    FogSetting b_settings = {0.4, 5, 0.8, 0.1};
     /*
+    if (entity->alpha_value == 1){
+      r_settings.m = 0.1;
+      g_settings.m = 0.1;
+      b_settings.m = 0.1;
+      r_settings.c = 1;
+      g_settings.c = 1;
+      b_settings.c = 1;
+    }
+    else {
+      r_settings.m = 0.1;
+      g_settings.m = 0.1;
+      b_settings.m = 0.1;
+      r_settings.c = 1;
+      g_settings.c = 1;
+      b_settings.c = 1;
+    }
+    */
+   /*
     float time = SDL_GetTicks() * 0.001f;
     FogSetting r_settings = {0.5 + 0.3*sinf(time), 2, 0.9, 0.1};
     FogSetting g_settings = {0.5 + 0.3*sinf(time + 2.0f), 3, 0.9, 0.1};  
