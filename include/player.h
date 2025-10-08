@@ -5,8 +5,10 @@
 #include <stdlib.h>
 #include <SDL2/SDL.h>
 
-#define ROTATION_SPEED 6
+#define ROTATION_SPEED 4
 #define SPEED 10
+#define SUPER_SPEED 20
+#define VEL_Z 8
 
 typedef struct {
   Vector2 pos;
@@ -15,6 +17,7 @@ typedef struct {
   Vector2 plane;
   SDL_Rect rect;
   double pos_z;
+  double vel_z;
   double a_vel;
   double angle;
   double player_size;
