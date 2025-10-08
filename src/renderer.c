@@ -241,9 +241,9 @@ void renderer_flush_queue(Renderer* renderer) {
   for (int i = 0; i < renderer->render_queue->count; i++) {
     entity = &renderer->render_queue->render_object_array[i];
 
-    FogSetting r_settings = {0.5, 5, 0.8, 0.1};
-    FogSetting g_settings = {0.5, 5, 0.8, 0.1};
-    FogSetting b_settings = {0.4, 5, 0.8, 0.1};
+    FogSetting r_settings = {0.2, 5, 0.8, 0.1};
+    FogSetting g_settings = {0.2, 5, 0.8, 0.1};
+    FogSetting b_settings = {0.15, 5, 0.8, 0.1};
     /*
     float time = SDL_GetTicks() * 0.001f;
     FogSetting r_settings = {0.5 + 0.3*sinf(time), 2, 0.9, 0.1};
