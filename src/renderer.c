@@ -200,6 +200,75 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
   PROFILE_END();
 }
 
+void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
+  if (!renderer || !player || !map){
+    printf("Wront player or renderer pointer inside renderer_floorcast");
+  }
+
+  Uint32* pixels;
+  int pitch;
+
+  SDL_Texture* background_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height);
+  SDL_LockTexture(background_texture, NULL, (void**)&pixels, &pitch);
+
+  float ray_dir_x0;
+  float ray_dir_y0;
+  float ray_dir_x1;
+  float ray_dir_y1;
+
+  int p;
+
+  float pos_z;
+
+  float row_distance;
+
+  float floor_step_x;
+  float floor_step_y;
+
+  float floor_x;
+  float floor_y;
+
+  int cell_x;
+  int cell_y;
+
+  int texture_x;
+  int texture_y;
+
+  for (int y = 0; y < renderer->heigth; y++){
+    ray_dir_x0 = player->dir.x - player->plane.x;
+    ray_dir_y0 = player->dir.y - player->plane.y;
+    ray_dir_x1 = player->dir.x + player->plane.x;
+    ray_dir_y1 = player->dir.y + player->plane.y;
+
+    p = y - renderer->height /2;
+
+    pos_z = 0.5 * renderer->height;
+
+    row_distance = pos_z / p;
+
+    floor_step_x = row_distance * (ray_dir_x1 - ray_dir_x0) / renderer->width;
+    floor_step_y = row_distance * (ray_dir_y1 - ray_dir_y0) / renderer->width;
+
+    floor_x = player->pos.x + row_distance * ray_dir_x0;
+    floor_y = player->pos.y + row_distance * ray_dir_y0;
+  
+    for (int x = 0; x < renderer->width; ++x){
+      cell_x = (int)(floor_x);
+      cell_y = (int)(floor_y);
+
+      texture_x = (int)(renderer->texture_manager->texture_width * (floor_x - cell_x)) & (renderer->texture_manager->texture_width - 1);
+      texture_y = (int)(renderer->texture_manager->texture_height * (floor_y - cell_y)) & (renderer->texture_manager->texture_height - 1);
+ 
+      floor_x += floor_step_x;
+      floor_y += floor_step_y;
+      
+      pixels[y * renderer->width + x] = color;
+    }
+  }
+  SDL_UnlockTexture(texture);
+  SDL_RenderCopy(renderer, background_texture, NULL, NULL);
+}
+
 void renderer_render_player_2d(Renderer *renderer, Player *player){
   if (!renderer || !player){
     printf("Wrong player or renderer pointer parameter inside render_player_2d\n");

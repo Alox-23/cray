@@ -35,6 +35,7 @@ float renderer_calc_fog_brightness(FogSetting s, double var);
 void renderer_render_player_2d(Renderer *renderer, Player *player);
 void renderer_render_map_2d(Renderer *renderer, Map *map);
 void renderer_raycast(Renderer* renderer, Map *map, Player *player);
+void renderer_floorcast(Renderer* renderer, Map *map, Player *player);
 void renderer_flush_queue(Renderer* renderer);
 void renderer_render(Renderer *renderer, Player *player, Map *map);
 void renderer_destroy(Renderer *renderer);
