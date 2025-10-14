@@ -6,7 +6,7 @@ TextureManager* texturemanager_create(SDL_Renderer* renderer, int texture_width,
     
     tm->texture = SDL_CreateTexture(renderer, 
                                    SDL_PIXELFORMAT_RGBA32,
-                                   SDL_TEXTUREACCESS_TARGET,
+                                   SDL_TEXTUREACCESS_STREAMING,
                                    ATLAS_WIDTH, ATLAS_HEIGHT);
     
     if (!tm->texture) {

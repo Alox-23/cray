@@ -211,33 +211,27 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
   int dest_pitch;
 
   SDL_Texture* background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height);
-  SDL_LockTexture(background_texture, NULL, (void**)&source_pixels, &source_pitch);
+  SDL_LockTexture(background_texture, NULL, (void**)&dest_pixels, &dest_pitch);
   SDL_Texture* atlas = texturemanager_get_atlas(renderer->texture_manager);
-  SDL_LockTexture(atlas, NULL, (void**)&dest_pixels, &dest_pitch);
+  SDL_LockTexture(atlas, NULL, (void**)&source_pixels, &source_pitch);
 
+  SDL_Rect rect = texturemanager_get_texcoord(renderer->texture_manager, 2);
+  
   float ray_dir_x0;
   float ray_dir_y0;
   float ray_dir_x1;
   float ray_dir_y1;
-
   int p;
-
   float pos_z;
-
   float row_distance;
-
   float floor_step_x;
   float floor_step_y;
-
   float floor_x;
   float floor_y;
-
   int cell_x;
   int cell_y;
-
   int texture_x;
   int texture_y;
-
   for (int y = 0; y < renderer->height; y++){
     ray_dir_x0 = player->dir.x - player->plane.x;
     ray_dir_y0 = player->dir.y - player->plane.y;
@@ -256,7 +250,7 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
     floor_x = player->pos.x + row_distance * ray_dir_x0;
     floor_y = player->pos.y + row_distance * ray_dir_y0;
   
-    for (int x = 0; x < renderer->width; ++x){
+    for (int x = 0; x < renderer->width; x++){
       cell_x = (int)(floor_x);
       cell_y = (int)(floor_y);
 
@@ -265,12 +259,14 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
  
       floor_x += floor_step_x;
       floor_y += floor_step_y;
-      
-      SDL_Rect rect = texturemanager_get_texcoord(renderer->texture_manager, 1);
+     
+      int final_x = rect.x;
+      int final_y = rect.y;
 
-      Uint32 color = source_pixels[(rect.y + texture_x) * renderer->texture_manager->texture_width + (rect.x + texture_x)];
-
-      dest_pixels[y * renderer->width + x] = color;
+      Uint32 color = source_pixels[final_y * (source_pitch / sizeof(Uint32)) + final_x];
+      printf("color: %i\n", color);
+      dest_pixels[y * (dest_pitch / sizeof(Uint32)) + x] = color;
+      //dest_pixels[y * (dest_pitch / sizeof(Uint32)) + x] = 0xFF00FF00;
     }
   }
   SDL_UnlockTexture(background_texture);
