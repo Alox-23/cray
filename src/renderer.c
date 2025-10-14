@@ -205,11 +205,15 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
     printf("Wront player or renderer pointer inside renderer_floorcast");
   }
 
-  Uint32* pixels;
-  int pitch;
+  Uint32* source_pixels;
+  int source_pitch;
+  Uint32* dest_pixels;
+  int dest_pitch;
 
-  SDL_Texture* background_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height);
-  SDL_LockTexture(background_texture, NULL, (void**)&pixels, &pitch);
+  SDL_Texture* background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height);
+  SDL_LockTexture(background_texture, NULL, (void**)&source_pixels, &source_pitch);
+  SDL_Texture* atlas = texturemanager_get_atlas(renderer->texture_manager);
+  SDL_LockTexture(atlas, NULL, (void**)&dest_pixels, &dest_pitch);
 
   float ray_dir_x0;
   float ray_dir_y0;
@@ -234,7 +238,7 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
   int texture_x;
   int texture_y;
 
-  for (int y = 0; y < renderer->heigth; y++){
+  for (int y = 0; y < renderer->height; y++){
     ray_dir_x0 = player->dir.x - player->plane.x;
     ray_dir_y0 = player->dir.y - player->plane.y;
     ray_dir_x1 = player->dir.x + player->plane.x;
@@ -262,11 +266,17 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
       floor_x += floor_step_x;
       floor_y += floor_step_y;
       
-      pixels[y * renderer->width + x] = color;
+      SDL_Rect rect = texturemanager_get_texcoord(renderer->texture_manager, 1);
+
+      Uint32 color = source_pixels[(rect.y + texture_x) * renderer->texture_manager->texture_width + (rect.x + texture_x)];
+
+      dest_pixels[y * renderer->width + x] = color;
     }
   }
-  SDL_UnlockTexture(texture);
-  SDL_RenderCopy(renderer, background_texture, NULL, NULL);
+  SDL_UnlockTexture(background_texture);
+  SDL_UnlockTexture(atlas);
+  SDL_RenderCopy(renderer->sdl_renderer, background_texture, NULL, NULL);
+  SDL_DestroyTexture(background_texture);
 }
 
 void renderer_render_player_2d(Renderer *renderer, Player *player){
@@ -371,6 +381,7 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   SDL_RenderFillRect(renderer->sdl_renderer, &rect);
 
   renderer_raycast(renderer, map, player);
+  renderer_floorcast(renderer, map, player);
   renderer_flush_queue(renderer);
  
   //renderer_render_map_2d(renderer, map);
