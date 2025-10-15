@@ -205,17 +205,15 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
     printf("Wront player or renderer pointer inside renderer_floorcast");
   }
 
-  Uint32* source_pixels;
-  int source_pitch;
   Uint32* dest_pixels;
   int dest_pitch;
 
   SDL_Texture* background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height);
   SDL_LockTexture(background_texture, NULL, (void**)&dest_pixels, &dest_pitch);
-  SDL_Texture* atlas = texturemanager_get_atlas(renderer->texture_manager);
-  SDL_LockTexture(atlas, NULL, (void**)&source_pixels, &source_pitch);
-
-  SDL_Rect rect = texturemanager_get_texcoord(renderer->texture_manager, 2);
+ 
+  SDL_Surface* csurface = IMG_Load("assets/grass.jpg");
+  SDL_Surface* surface = SDL_ConvertSurfaceFormat(csurface, SDL_PIXELFORMAT_RGBA32, 0);
+  SDL_LockSurface(surface);
   
   float ray_dir_x0;
   float ray_dir_y0;
@@ -246,7 +244,6 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
 
     floor_step_x = row_distance * (ray_dir_x1 - ray_dir_x0) / renderer->width;
     floor_step_y = row_distance * (ray_dir_y1 - ray_dir_y0) / renderer->width;
-
     floor_x = player->pos.x + row_distance * ray_dir_x0;
     floor_y = player->pos.y + row_distance * ray_dir_y0;
   
@@ -259,20 +256,17 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
  
       floor_x += floor_step_x;
       floor_y += floor_step_y;
-     
-      int final_x = rect.x;
-      int final_y = rect.y;
 
-      Uint32 color = source_pixels[final_y * (source_pitch / sizeof(Uint32)) + final_x];
-      printf("color: %i\n", color);
-      dest_pixels[y * (dest_pitch / sizeof(Uint32)) + x] = color;
-      //dest_pixels[y * (dest_pitch / sizeof(Uint32)) + x] = 0xFF00FF00;
+      //Uint32 surface_pixel = ((Uint32*)surface->pixels)[texture_y * (surface->pitch / 4) + texture_x];
+      dest_pixels[y * (dest_pitch / sizeof(Uint32)) + x] = 0xFF00FF00;
     }
   }
   SDL_UnlockTexture(background_texture);
-  SDL_UnlockTexture(atlas);
+  SDL_UnlockSurface(surface);
   SDL_RenderCopy(renderer->sdl_renderer, background_texture, NULL, NULL);
   SDL_DestroyTexture(background_texture);
+  SDL_FreeSurface(csurface);
+  SDL_FreeSurface(surface);
 }
 
 void renderer_render_player_2d(Renderer *renderer, Player *player){
