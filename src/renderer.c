@@ -232,7 +232,7 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
   int cell_y;
   int texture_x;
   int texture_y;
-  for (int y = 0; y < renderer->height; y++){
+  for (int y = renderer->height/2; y < renderer->height; y++){
     ray_dir_x0 = player->dir.x - player->plane.x;
     ray_dir_y0 = player->dir.y - player->plane.y;
     ray_dir_x1 = player->dir.x + player->plane.x;
@@ -240,12 +240,13 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
 
     p = y - renderer->height /2;
 
-    pos_z = 0.5 * renderer->height;
+    pos_z = (0.5 + player->pos_z) * renderer->height;
 
     row_distance = pos_z / p;
 
     floor_step_x = row_distance * (ray_dir_x1 - ray_dir_x0) / renderer->width;
     floor_step_y = row_distance * (ray_dir_y1 - ray_dir_y0) / renderer->width;
+    
     floor_x = player->pos.x + row_distance * ray_dir_x0;
     floor_y = player->pos.y + row_distance * ray_dir_y0;
   
@@ -259,8 +260,30 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
       floor_x += floor_step_x;
       floor_y += floor_step_y;
 
+      float depth_factor = 1.0f / (1.0f + row_distance * 0.1f);
+
       Uint32 surface_pixel = ((Uint32*)surface->pixels)[texture_y * (surface->pitch / 4) + texture_x];
-      dest_pixels[y * (dest_pitch / sizeof(Uint32)) + x] = surface_pixel;
+
+      Uint8 r, g, b, a;
+      SDL_GetRGBA(surface_pixel, surface->format, &r, &g, &b, &a);
+      
+      // Calculate blue tint intensity based on distance
+      float blue_intensity = row_distance * 0.01f; // Adjust 0.1f for how quickly blue appears
+      blue_intensity = blue_intensity > 1.0f ? 1.0f : blue_intensity; // Clamp to 1.0
+      
+      // Apply blue tint: reduce red/green, increase blue
+      r = (Uint8)(r * (1.0f - blue_intensity * 0.3f));  // Reduce red more
+      g = (Uint8)(g * (1.0f - blue_intensity * 0.2f));  // Reduce green less
+      b = (Uint8)(b + (255 - b) * blue_intensity * 0.4f); // Increase blue
+      
+      // Optional: also apply some darkening with distance
+      float darken_factor = 1.0f / (1.0f + row_distance * 0.05f);
+      r = (Uint8)(r * darken_factor);
+      g = (Uint8)(g * darken_factor);
+      b = (Uint8)(b * darken_factor);
+      
+
+      dest_pixels[y * (dest_pitch / 4) + x] = SDL_MapRGBA(surface->format, r, g, b, a);
     }
   }
   SDL_UnlockTexture(background_texture);
@@ -360,20 +383,20 @@ void renderer_render_texture_atlas(Renderer* renderer){
 }
 
 void renderer_render(Renderer *renderer, Player *player, Map *map){
-  SDL_SetRenderDrawColor(renderer->sdl_renderer, 150, 150, 220, 255);
   SDL_RenderClear(renderer->sdl_renderer);
-  
-  SDL_Rect rect;
-  rect.x = 0;
-  rect.y = renderer->height / 2;
-  rect.h = renderer->height / 2;
-  rect.w = renderer->width;
- 
-  SDL_SetRenderDrawColor(renderer->sdl_renderer, 30, 30, 30, 255);
-  SDL_RenderFillRect(renderer->sdl_renderer, &rect);
 
   renderer_raycast(renderer, map, player);
   renderer_floorcast(renderer, map, player);
+  
+  SDL_Rect rect;
+  rect.x = 0;
+  rect.y = 0;
+  rect.h = renderer->height / 2;
+  rect.w = renderer->width;
+ 
+  SDL_SetRenderDrawColor(renderer->sdl_renderer, 150, 150, 220, 255);
+  SDL_RenderFillRect(renderer->sdl_renderer, &rect);
+
   renderer_flush_queue(renderer);
  
   //renderer_render_map_2d(renderer, map);
