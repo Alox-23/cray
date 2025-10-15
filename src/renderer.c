@@ -210,9 +210,11 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
 
   SDL_Texture* background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height);
   SDL_LockTexture(background_texture, NULL, (void**)&dest_pixels, &dest_pitch);
- 
-  SDL_Surface* csurface = IMG_Load("assets/grass.jpg");
+
+  SDL_Surface* csurface = IMG_Load("assets/images.jpeg");
+  if (!csurface) printf("csurface failier: %s\n", SDL_GetError());
   SDL_Surface* surface = SDL_ConvertSurfaceFormat(csurface, SDL_PIXELFORMAT_RGBA32, 0);
+  if (!surface) printf("surface failier: %s\n", SDL_GetError());
   SDL_LockSurface(surface);
   
   float ray_dir_x0;
@@ -257,8 +259,8 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
       floor_x += floor_step_x;
       floor_y += floor_step_y;
 
-      //Uint32 surface_pixel = ((Uint32*)surface->pixels)[texture_y * (surface->pitch / 4) + texture_x];
-      dest_pixels[y * (dest_pitch / sizeof(Uint32)) + x] = 0xFF00FF00;
+      Uint32 surface_pixel = ((Uint32*)surface->pixels)[texture_y * (surface->pitch / 4) + texture_x];
+      dest_pixels[y * (dest_pitch / sizeof(Uint32)) + x] = surface_pixel;
     }
   }
   SDL_UnlockTexture(background_texture);
