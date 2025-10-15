@@ -260,28 +260,16 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
       floor_x += floor_step_x;
       floor_y += floor_step_y;
 
-      float depth_factor = 1.0f / (1.0f + row_distance * 0.1f);
-
       Uint32 surface_pixel = ((Uint32*)surface->pixels)[texture_y * (surface->pitch / 4) + texture_x];
 
       Uint8 r, g, b, a;
       SDL_GetRGBA(surface_pixel, surface->format, &r, &g, &b, &a);
       
-      // Calculate blue tint intensity based on distance
-      float blue_intensity = row_distance * 0.01f; // Adjust 0.1f for how quickly blue appears
-      blue_intensity = blue_intensity > 1.0f ? 1.0f : blue_intensity; // Clamp to 1.0
-      
-      // Apply blue tint: reduce red/green, increase blue
-      r = (Uint8)(r * (1.0f - blue_intensity * 0.3f));  // Reduce red more
-      g = (Uint8)(g * (1.0f - blue_intensity * 0.2f));  // Reduce green less
-      b = (Uint8)(b + (255 - b) * blue_intensity * 0.4f); // Increase blue
-      
       // Optional: also apply some darkening with distance
-      float darken_factor = 1.0f / (1.0f + row_distance * 0.05f);
+      float darken_factor = 1.0f / (1.0f + row_distance * 0.01f);
       r = (Uint8)(r * darken_factor);
       g = (Uint8)(g * darken_factor);
       b = (Uint8)(b * darken_factor);
-      
 
       dest_pixels[y * (dest_pitch / 4) + x] = SDL_MapRGBA(surface->format, r, g, b, a);
     }
@@ -335,9 +323,9 @@ void renderer_flush_queue(Renderer* renderer) {
   for (int i = 0; i < renderer->render_queue->count; i++) {
     entity = &renderer->render_queue->render_object_array[i];
 
-    FogSetting r_settings = {0.2, 5, 0.8, 0.1};
-    FogSetting g_settings = {0.2, 5, 0.8, 0.1};
-    FogSetting b_settings = {0.15, 5, 0.8, 0.1};
+    FogSetting r_settings = {0.01, 1, 1, 0.3};
+    FogSetting g_settings = {0.01, 1, 1, 0.3};
+    FogSetting b_settings = {0.01, 1, 1, 0.3};
     /*
     float time = SDL_GetTicks() * 0.001f;
     FogSetting r_settings = {0.5 + 0.3*sinf(time), 2, 0.9, 0.1};
