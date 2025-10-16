@@ -211,7 +211,7 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
   SDL_Texture* background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height);
   SDL_LockTexture(background_texture, NULL, (void**)&dest_pixels, &dest_pitch);
 
-  SDL_Surface* csurface = IMG_Load("assets/images.jpeg");
+  SDL_Surface* csurface = IMG_Load("assets/jpg2png/ground2.png");
   if (!csurface) printf("csurface failier: %s\n", SDL_GetError());
   SDL_Surface* surface = SDL_ConvertSurfaceFormat(csurface, SDL_PIXELFORMAT_RGBA32, 0);
   if (!surface) printf("surface failier: %s\n", SDL_GetError());
@@ -249,14 +249,17 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
     
     floor_x = player->pos.x + row_distance * ray_dir_x0;
     floor_y = player->pos.y + row_distance * ray_dir_y0;
-  
+
     for (int x = 0; x < renderer->width; x++){
       cell_x = (int)(floor_x);
       cell_y = (int)(floor_y);
 
-      texture_x = (int)(renderer->texture_manager->texture_width * (floor_x - cell_x)) & (renderer->texture_manager->texture_width - 1);
-      texture_y = (int)(renderer->texture_manager->texture_height * (floor_y - cell_y)) & (renderer->texture_manager->texture_height - 1);
- 
+      texture_x = (int)(surface->w * (floor_x - cell_x)) % surface->w;
+      texture_y = (int)(surface->h * (floor_y - cell_y)) % surface->h;
+     
+      float frac_x = floor_x - cell_x;
+      float frac_y = floor_y - cell_y;
+
       floor_x += floor_step_x;
       floor_y += floor_step_y;
 
