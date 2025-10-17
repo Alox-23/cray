@@ -24,6 +24,9 @@ typedef struct{
   int width;
   int height;
   int raycasting_scale;
+  float floor_tile_scale;
+  SDL_Surface* floor_surface;
+  SDL_Texture* background_texture;
   SDL_Renderer *sdl_renderer;
   SDL_Window *window;
   RenderQueue* render_queue;

@@ -4,7 +4,6 @@
 #include "../include/texturemanager.h"
 #include "../include/renderobject.h"
 #include "../include/renderqueue.h"
-#include "../include/profile.h"
 #include <stdlib.h>
 
 Renderer* renderer_create(){
@@ -52,6 +51,21 @@ Renderer* renderer_create(){
   texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/default.png");
   */ 
 
+  renderer->background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height);
+  if (!renderer->background_texture){
+    printf("Failed to create background_texture SDL_Texture: %s\n", SDL_GetError());
+    return NULL;
+  }
+
+  SDL_Surface* csurface = IMG_Load("assets/images.jpeg");
+  renderer->floor_surface = SDL_ConvertSurfaceFormat(csurface, SDL_PIXELFORMAT_RGBA32, 0);
+  if (!renderer->floor_surface){
+    printf("Failed to load floor SDL_Surface: %s\n", SDL_GetError());
+    return NULL;
+  }
+
+  renderer->floor_tile_scale = 2.0f;
+
   return renderer;
 }
 
@@ -81,7 +95,6 @@ void renderer_render_map_2d(Renderer *renderer, Map *map){
 }
 
 void renderer_raycast(Renderer* renderer, Map *map, Player *player){
-  PROFILE_BEGIN("CRAY");
   if (!renderer || !map || !player){
     printf("Invalid pointer passed to renderer_raycast\n");
     return;
@@ -197,7 +210,6 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
       obj->perp_dist = perp_wall_dist;
     }
   }
-  PROFILE_END();
 }
 
 void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
@@ -208,14 +220,8 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
   Uint32* dest_pixels;
   int dest_pitch;
 
-  SDL_Texture* background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height);
-  SDL_LockTexture(background_texture, NULL, (void**)&dest_pixels, &dest_pitch);
-
-  SDL_Surface* csurface = IMG_Load("assets/images.jpeg");
-  if (!csurface) printf("csurface failier: %s\n", SDL_GetError());
-  SDL_Surface* surface = SDL_ConvertSurfaceFormat(csurface, SDL_PIXELFORMAT_RGBA32, 0);
-  if (!surface) printf("surface failier: %s\n", SDL_GetError());
-  SDL_LockSurface(surface);
+  SDL_LockTexture(renderer->background_texture, NULL, (void**)&dest_pixels, &dest_pitch);
+  SDL_LockSurface(renderer->floor_surface);
   
   float ray_dir_x0;
   float ray_dir_y0;
@@ -232,8 +238,6 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
   int cell_y;
   int texture_x;
   int texture_y;
-
-  float tile_scale = 2.0f;
 
   for (int y = renderer->height/2; y < renderer->height; y++){
     ray_dir_x0 = player->dir.x - player->plane.x;
@@ -257,20 +261,19 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
       cell_x = (int)(floor_x);
       cell_y = (int)(floor_y);
 
-      float frac_x = (floor_x) / tile_scale;
-      float frac_y = (floor_y) / tile_scale;
+      float frac_x = (floor_x) / renderer->floor_tile_scale;
+      float frac_y = (floor_y) / renderer->floor_tile_scale;
 
-      texture_x = (int)(surface->w * frac_x) % surface->w;
-      texture_y = (int)(surface->h * frac_y) % surface->h;
+      texture_x = (int)(renderer->floor_surface->w * frac_x) % renderer->floor_surface->w;
+      texture_y = (int)(renderer->floor_surface->h * frac_y) % renderer->floor_surface->h;
       
       floor_x += floor_step_x;
       floor_y += floor_step_y;
 
-      
-      Uint32 surface_pixel = ((Uint32*)surface->pixels)[texture_y * (surface->pitch / 4) + texture_x];
+      Uint32 surface_pixel = ((Uint32*)renderer->floor_surface->pixels)[texture_y * (renderer->floor_surface->pitch / 4) + texture_x];
 
       Uint8 r, g, b, a;
-      SDL_GetRGBA(surface_pixel, surface->format, &r, &g, &b, &a);
+      SDL_GetRGBA(surface_pixel, renderer->floor_surface->format, &r, &g, &b, &a);
       
       // Optional: also apply some darkening with distance
       float darken_factor = 1.0f / (1.0f + row_distance * 0.01f);
@@ -278,16 +281,13 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
       g = (Uint8)(g * darken_factor);
       b = (Uint8)(b * darken_factor);
 
-      dest_pixels[y * (dest_pitch / 4) + x] = SDL_MapRGBA(surface->format, r, g, b, a);
-      //dest_pixels[y * (dest_pitch / 4) + x] = SDL_MapRGBA(surface->format, 0, 255, 0, 255);
+      dest_pixels[y * (dest_pitch / 4) + x] = SDL_MapRGBA(renderer->floor_surface->format, r, g, b, a);
+      //dest_pixels[y * (dest_pitch / 4) + x] = SDL_MapRGBA(renderer->floor_surface->format, 0, 255, 0, 255);
     }
   }
-  SDL_UnlockTexture(background_texture);
-  SDL_UnlockSurface(surface);
-  SDL_RenderCopy(renderer->sdl_renderer, background_texture, NULL, NULL);
-  SDL_DestroyTexture(background_texture);
-  SDL_FreeSurface(csurface);
-  SDL_FreeSurface(surface);
+  SDL_UnlockTexture(renderer->background_texture);
+  SDL_UnlockSurface(renderer->floor_surface);
+  SDL_RenderCopy(renderer->sdl_renderer, renderer->background_texture, NULL, NULL);
 }
 
 void renderer_render_player_2d(Renderer *renderer, Player *player){
@@ -408,6 +408,8 @@ void renderer_destroy(Renderer *renderer){
     return;
   }
 
+  SDL_DestroyTexture(renderer->background_texture);
+  SDL_FreeSurface(renderer->floor_surface);
   texturemanager_destroy(renderer->texture_manager);
   renderqueue_destroy(renderer->render_queue);
   SDL_DestroyRenderer(renderer->sdl_renderer);
