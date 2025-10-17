@@ -211,7 +211,7 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
   SDL_Texture* background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height);
   SDL_LockTexture(background_texture, NULL, (void**)&dest_pixels, &dest_pitch);
 
-  SDL_Surface* csurface = IMG_Load("assets/jpg2png/ground2.png");
+  SDL_Surface* csurface = IMG_Load("assets/images.jpeg");
   if (!csurface) printf("csurface failier: %s\n", SDL_GetError());
   SDL_Surface* surface = SDL_ConvertSurfaceFormat(csurface, SDL_PIXELFORMAT_RGBA32, 0);
   if (!surface) printf("surface failier: %s\n", SDL_GetError());
@@ -232,6 +232,9 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
   int cell_y;
   int texture_x;
   int texture_y;
+
+  float tile_scale = 2.0f;
+
   for (int y = renderer->height/2; y < renderer->height; y++){
     ray_dir_x0 = player->dir.x - player->plane.x;
     ray_dir_y0 = player->dir.y - player->plane.y;
@@ -254,15 +257,16 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
       cell_x = (int)(floor_x);
       cell_y = (int)(floor_y);
 
-      texture_x = (int)(surface->w * (floor_x - cell_x)) % surface->w;
-      texture_y = (int)(surface->h * (floor_y - cell_y)) % surface->h;
-     
-      float frac_x = floor_x - cell_x;
-      float frac_y = floor_y - cell_y;
+      float frac_x = (floor_x) / tile_scale;
+      float frac_y = (floor_y) / tile_scale;
 
+      texture_x = (int)(surface->w * frac_x) % surface->w;
+      texture_y = (int)(surface->h * frac_y) % surface->h;
+      
       floor_x += floor_step_x;
       floor_y += floor_step_y;
 
+      
       Uint32 surface_pixel = ((Uint32*)surface->pixels)[texture_y * (surface->pitch / 4) + texture_x];
 
       Uint8 r, g, b, a;
@@ -275,6 +279,7 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
       b = (Uint8)(b * darken_factor);
 
       dest_pixels[y * (dest_pitch / 4) + x] = SDL_MapRGBA(surface->format, r, g, b, a);
+      //dest_pixels[y * (dest_pitch / 4) + x] = SDL_MapRGBA(surface->format, 0, 255, 0, 255);
     }
   }
   SDL_UnlockTexture(background_texture);
