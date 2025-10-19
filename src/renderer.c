@@ -57,7 +57,7 @@ Renderer* renderer_create(){
     return NULL;
   }
 
-  SDL_Surface* csurface = IMG_Load("assets/images.jpeg");
+  SDL_Surface* csurface = IMG_Load("assets/x256/textures/Metal/Metal_07-256x256.png");
   renderer->floor_surface = SDL_ConvertSurfaceFormat(csurface, SDL_PIXELFORMAT_RGBA32, 0);
   if (!renderer->floor_surface){
     printf("Failed to load floor SDL_Surface: %s\n", SDL_GetError());
@@ -264,25 +264,14 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
       float frac_x = (floor_x) / renderer->floor_tile_scale;
       float frac_y = (floor_y) / renderer->floor_tile_scale;
 
-      texture_x = (int)(renderer->floor_surface->w * frac_x) % renderer->floor_surface->w;
-      texture_y = (int)(renderer->floor_surface->h * frac_y) % renderer->floor_surface->h;
+      texture_x = (int)(renderer->floor_surface->w * frac_x) & (renderer->floor_surface->w-1);
+      texture_y = (int)(renderer->floor_surface->h * frac_y) & (renderer->floor_surface->h-1);
       
       floor_x += floor_step_x;
       floor_y += floor_step_y;
 
       Uint32 surface_pixel = ((Uint32*)renderer->floor_surface->pixels)[texture_y * (renderer->floor_surface->pitch / 4) + texture_x];
-
-      Uint8 r, g, b, a;
-      SDL_GetRGBA(surface_pixel, renderer->floor_surface->format, &r, &g, &b, &a);
-      
-      // Optional: also apply some darkening with distance
-      float darken_factor = 1.0f / (1.0f + row_distance * 0.01f);
-      r = (Uint8)(r * darken_factor);
-      g = (Uint8)(g * darken_factor);
-      b = (Uint8)(b * darken_factor);
-
-      dest_pixels[y * (dest_pitch / 4) + x] = SDL_MapRGBA(renderer->floor_surface->format, r, g, b, a);
-      //dest_pixels[y * (dest_pitch / 4) + x] = SDL_MapRGBA(renderer->floor_surface->format, 0, 255, 0, 255);
+      dest_pixels[y * (dest_pitch / 4) + x] = surface_pixel;
     }
   }
   SDL_UnlockTexture(renderer->background_texture);
