@@ -212,6 +212,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
   }
 }
 
+/*
 void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
   if (!renderer || !player || !map){
     printf("Wront player or renderer pointer inside renderer_floorcast");
@@ -277,6 +278,464 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
   SDL_UnlockTexture(renderer->background_texture);
   SDL_UnlockSurface(renderer->floor_surface);
   SDL_RenderCopy(renderer->sdl_renderer, renderer->background_texture, NULL, NULL);
+}
+*/
+//outside loop calc
+/*
+void renderer_floorcast(Renderer* renderer, Map *map, Player *player) {
+    if (!renderer || !player || !map) {
+        printf("Wrong player or renderer pointer inside renderer_floorcast");
+        return;
+    }
+
+    Uint32* dest_pixels;
+    int dest_pitch;
+    SDL_LockTexture(renderer->background_texture, NULL, (void**)&dest_pixels, &dest_pitch);
+    SDL_LockSurface(renderer->floor_surface);
+
+    // PRECOMPUTE ALL INVARIANT VALUES
+    const float ray_dir_x0 = player->dir.x - player->plane.x;
+    const float ray_dir_y0 = player->dir.y - player->plane.y;
+    const float ray_dir_x1 = player->dir.x + player->plane.x;
+    const float ray_dir_y1 = player->dir.y + player->plane.y;
+    
+    // Precompute ray direction differences
+    const float ray_diff_x = ray_dir_x1 - ray_dir_x0;
+    const float ray_diff_y = ray_dir_y1 - ray_dir_y0;
+    
+    // Precompute scaled values
+    const float pos_z_scaled = (0.5f + player->pos_z) * renderer->height;
+    const float inv_width = 1.0f / renderer->width;
+    
+    // Precompute texture access values
+    const int tex_width = renderer->floor_surface->w;
+    const int tex_height = renderer->floor_surface->h;
+    const int tex_pitch = renderer->floor_surface->pitch / 4; // bytes to pixels
+    const Uint32* tex_pixels = (Uint32*)renderer->floor_surface->pixels;
+    const int tex_width_mask = tex_width - 1;
+    const int tex_height_mask = tex_height - 1;
+    
+    // Precompute dest pitch in pixels
+    const int dest_pitch_pixels = dest_pitch / 4;
+
+    for (int y = renderer->height / 2; y < renderer->height; y++) {
+        const int p = y - renderer->height / 2;
+        
+        // Replace division with multiplication
+        const float row_distance = pos_z_scaled / p;
+        
+        // Precompute step values for this row
+        const float floor_step_x = row_distance * ray_diff_x * inv_width;
+        const float floor_step_y = row_distance * ray_diff_y * inv_width;
+        
+        // Initial floor position
+        float floor_x = player->pos.x + row_distance * ray_dir_x0;
+        float floor_y = player->pos.y + row_distance * ray_dir_y0;
+        
+        // Get destination row pointer for faster access
+        Uint32* dest_row = dest_pixels + y * dest_pitch_pixels;
+
+        for (int x = 0; x < renderer->width; x++) {
+            // Extract integer and fractional parts in one operation
+            const int cell_x = (int)floor_x;
+            const int cell_y = (int)floor_y;
+            
+            // Get fractional parts directly (faster than subtraction)
+            const float frac_x = floor_x - cell_x;
+            const float frac_y = floor_y - cell_y;
+            
+            // Calculate texture coordinates with power-of-two optimization
+            const int texture_x = (int)(tex_width * frac_x) & tex_width_mask;
+            const int texture_y = (int)(tex_height * frac_y) & tex_height_mask;
+            
+            // Get texture pixel and store
+            dest_row[x] = tex_pixels[texture_y * tex_pitch + texture_x];
+            
+            // Increment position
+            floor_x += floor_step_x;
+            floor_y += floor_step_y;
+        }
+    }
+    
+    SDL_UnlockTexture(renderer->background_texture);
+    SDL_UnlockSurface(renderer->floor_surface);
+    SDL_RenderCopy(renderer->sdl_renderer, renderer->background_texture, NULL, NULL);
+}
+*/
+//fixed point arythmetic + outside loop calc
+/*
+void renderer_floorcast(Renderer* renderer, Map *map, Player *player) {
+    if (!renderer || !player || !map) return;
+
+    Uint32* dest_pixels;
+    int dest_pitch;
+    SDL_LockTexture(renderer->background_texture, NULL, (void**)&dest_pixels, &dest_pitch);
+    SDL_LockSurface(renderer->floor_surface);
+
+    // Fixed-point precision (16.16)
+    #define FIXED_SHIFT 16
+    #define FLOAT_TO_FIXED(f) ((int)((f) * (1 << FIXED_SHIFT)))
+    #define FIXED_TO_INT(f) ((f) >> FIXED_SHIFT)
+    #define FIXED_FRAC(f) ((f) & ((1 << FIXED_SHIFT) - 1))
+
+    // Convert to fixed-point
+    const int pos_x = FLOAT_TO_FIXED(player->pos.x);
+    const int pos_y = FLOAT_TO_FIXED(player->pos.y);
+    const int ray_dir_x0 = FLOAT_TO_FIXED(player->dir.x - player->plane.x);
+    const int ray_dir_y0 = FLOAT_TO_FIXED(player->dir.y - player->plane.y);
+    const int ray_diff_x = FLOAT_TO_FIXED((player->dir.x + player->plane.x) - (player->dir.x - player->plane.x));
+    const int ray_diff_y = FLOAT_TO_FIXED((player->dir.y + player->plane.y) - (player->dir.y - player->plane.y));
+    
+    const int pos_z_scaled = (int)((0.5f + player->pos_z) * renderer->height * (1 << FIXED_SHIFT));
+    const int inv_width = (1 << FIXED_SHIFT) / renderer->width;
+
+    // Texture info
+    const int tex_width = renderer->floor_surface->w;
+    const int tex_height = renderer->floor_surface->h;
+    const int tex_pitch = renderer->floor_surface->pitch / 4;
+    const Uint32* tex_pixels = (Uint32*)renderer->floor_surface->pixels;
+    const int tex_width_mask = tex_width - 1;
+    const int tex_height_mask = tex_height - 1;
+    const int dest_pitch_pixels = dest_pitch / 4;
+
+    for (int y = renderer->height / 2 + 1; y < renderer->height; y++) {
+        const int p = y - renderer->height / 2;
+        const int row_distance = pos_z_scaled / p;
+        
+        const int floor_step_x = (row_distance * ray_diff_x) >> FIXED_SHIFT * inv_width >> FIXED_SHIFT;
+        const int floor_step_y = (row_distance * ray_diff_y) >> FIXED_SHIFT * inv_width >> FIXED_SHIFT;
+        
+        int floor_x = pos_x + ((row_distance * ray_dir_x0) >> FIXED_SHIFT);
+        int floor_y = pos_y + ((row_distance * ray_dir_y0) >> FIXED_SHIFT);
+        
+        Uint32* dest_row = dest_pixels + y * dest_pitch_pixels;
+
+        for (int x = 0; x < renderer->width; x++) {
+            // Extract fractional parts directly
+            const int frac_x = FIXED_FRAC(floor_x);
+            const int frac_y = FIXED_FRAC(floor_y);
+            
+            // Texture coordinates using fixed-point math
+            const int texture_x = (frac_x * tex_width) >> FIXED_SHIFT;
+            const int texture_y = (frac_y * tex_height) >> FIXED_SHIFT;
+            
+            dest_row[x] = tex_pixels[(texture_y & tex_height_mask) * tex_pitch + (texture_x & tex_width_mask)];
+            
+            floor_x += floor_step_x;
+            floor_y += floor_step_y;
+        }
+    }
+
+    SDL_UnlockTexture(renderer->background_texture);
+    SDL_UnlockSurface(renderer->floor_surface);
+    SDL_RenderCopy(renderer->sdl_renderer, renderer->background_texture, NULL, NULL);
+}
+*/ 
+//SSE version
+/*
+void renderer_floorcast(Renderer* renderer, Map *map, Player *player) {
+    if (!renderer || !player || !map) return;
+
+    Uint32* dest_pixels;
+    int dest_pitch;
+    SDL_LockTexture(renderer->background_texture, NULL, (void**)&dest_pixels, &dest_pitch);
+    SDL_LockSurface(renderer->floor_surface);
+
+    // Precompute invariant values
+    const float ray_dir_x0 = player->dir.x - player->plane.x;
+    const float ray_dir_y0 = player->dir.y - player->plane.y;
+    const float ray_dir_x1 = player->dir.x + player->plane.x;
+    const float ray_dir_y1 = player->dir.y + player->plane.y;
+    
+    const float ray_diff_x = ray_dir_x1 - ray_dir_x0;
+    const float ray_diff_y = ray_dir_y1 - ray_dir_y0;
+    
+    const float pos_z_scaled = (0.5f + player->pos_z) * renderer->height;
+    const float inv_width = 1.0f / renderer->width;
+    
+    // Texture info
+    const int tex_width = renderer->floor_surface->w;
+    const int tex_height = renderer->floor_surface->h;
+    const int tex_pitch = renderer->floor_surface->pitch / 4;
+    const Uint32* tex_pixels = (Uint32*)renderer->floor_surface->pixels;
+    const int tex_width_mask = tex_width - 1;
+    const int tex_height_mask = tex_height - 1;
+    const int dest_pitch_pixels = dest_pitch / 4;
+
+    // SIMD constants
+    const __m128 xmm_tex_width = _mm_set1_ps(tex_width);
+    const __m128 xmm_tex_height = _mm_set1_ps(tex_height);
+    const __m128 xmm_inv_width = _mm_set1_ps(inv_width);
+    const __m128 xmm_ray_diff_x = _mm_set1_ps(ray_diff_x);
+    const __m128 xmm_ray_diff_y = _mm_set1_ps(ray_diff_y);
+    const __m128 xmm_ray_dir_x0 = _mm_set1_ps(ray_dir_x0);
+    const __m128 xmm_ray_dir_y0 = _mm_set1_ps(ray_dir_y0);
+    const __m128 xmm_pos_x = _mm_set1_ps(player->pos.x);
+    const __m128 xmm_pos_y = _mm_set1_ps(player->pos.y);
+    const __m128i xmm_width_mask = _mm_set1_epi32(tex_width_mask);
+    const __m128i xmm_height_mask = _mm_set1_epi32(tex_height_mask);
+
+    // SIMD indices for gathering
+    const __m128 xmm_offsets = _mm_set_ps(3.0f, 2.0f, 1.0f, 0.0f);
+
+    for (int y = renderer->height / 2 + 1; y < renderer->height; y++) {
+        const int p = y - renderer->height / 2;
+        const float row_distance = pos_z_scaled / p;
+        
+        const float floor_step_x = row_distance * ray_diff_x * inv_width;
+        const float floor_step_y = row_distance * ray_diff_y * inv_width;
+        
+        float floor_x = player->pos.x + row_distance * ray_dir_x0;
+        float floor_y = player->pos.y + row_distance * ray_dir_y0;
+        
+        Uint32* dest_row = dest_pixels + y * dest_pitch_pixels;
+
+        int x = 0;
+        
+        // Process 4 pixels at a time with SIMD
+        for (; x <= renderer->width - 4; x += 4) {
+            // Create vectors for 4 consecutive pixels
+            __m128 xmm_floor_x = _mm_set_ps(
+                floor_x + floor_step_x * 3,
+                floor_x + floor_step_x * 2,
+                floor_x + floor_step_x * 1,
+                floor_x + floor_step_x * 0
+            );
+            
+            __m128 xmm_floor_y = _mm_set_ps(
+                floor_y + floor_step_y * 3,
+                floor_y + floor_step_y * 2,
+                floor_y + floor_step_y * 1,
+                floor_y + floor_step_y * 0
+            );
+            
+            // Convert to integer cell coordinates (truncate)
+            __m128i xmm_cell_x = _mm_cvttps_epi32(xmm_floor_x);
+            __m128i xmm_cell_y = _mm_cvttps_epi32(xmm_floor_y);
+            
+            // Convert back to float to get fractional parts
+            __m128 xmm_frac_x = _mm_sub_ps(xmm_floor_x, _mm_cvtepi32_ps(xmm_cell_x));
+            __m128 xmm_frac_y = _mm_sub_ps(xmm_floor_y, _mm_cvtepi32_ps(xmm_cell_y));
+            
+            // Calculate texture coordinates: frac_x * tex_width
+            __m128 xmm_tex_x_f = _mm_mul_ps(xmm_frac_x, xmm_tex_width);
+            __m128 xmm_tex_y_f = _mm_mul_ps(xmm_frac_y, xmm_tex_height);
+            
+            // Convert to integer texture coordinates
+            __m128i xmm_tex_x = _mm_cvttps_epi32(xmm_tex_x_f);
+            __m128i xmm_tex_y = _mm_cvttps_epi32(xmm_tex_y_f);
+            
+            // Apply texture wrap-around masks
+            xmm_tex_x = _mm_and_si128(xmm_tex_x, xmm_width_mask);
+            xmm_tex_y = _mm_and_si128(xmm_tex_y, xmm_height_mask);
+            
+            // Calculate texture indices: tex_y * tex_pitch + tex_x
+            __m128i xmm_tex_indices = _mm_add_epi32(
+                _mm_mullo_epi32(xmm_tex_y, _mm_set1_epi32(tex_pitch)),
+                xmm_tex_x
+            );
+            
+            // Gather texture pixels (manual gather for compatibility)
+            Uint32 pixels[4];
+            int indices[4];
+            _mm_store_si128((__m128i*)indices, xmm_tex_indices);
+            
+            pixels[0] = tex_pixels[indices[0]];
+            pixels[1] = tex_pixels[indices[1]];
+            pixels[2] = tex_pixels[indices[2]];
+            pixels[3] = tex_pixels[indices[3]];
+            
+            // Store to destination
+            _mm_storeu_si128((__m128i*)(dest_row + x), _mm_load_si128((__m128i*)pixels));
+            
+            // Update scalar positions
+            floor_x += floor_step_x * 4;
+            floor_y += floor_step_y * 4;
+        }
+        
+        // Process remaining pixels
+        for (; x < renderer->width; x++) {
+            const int cell_x = (int)floor_x;
+            const int cell_y = (int)floor_y;
+            
+            const float frac_x = floor_x - cell_x;
+            const float frac_y = floor_y - cell_y;
+            
+            const int texture_x = (int)(tex_width * frac_x) & tex_width_mask;
+            const int texture_y = (int)(tex_height * frac_y) & tex_height_mask;
+            
+            dest_row[x] = tex_pixels[texture_y * tex_pitch + texture_x];
+            
+            floor_x += floor_step_x;
+            floor_y += floor_step_y;
+        }
+    }
+
+    SDL_UnlockTexture(renderer->background_texture);
+    SDL_UnlockSurface(renderer->floor_surface);
+    SDL_RenderCopy(renderer->sdl_renderer, renderer->background_texture, NULL, NULL);
+}
+*/ 
+//AVX version
+void renderer_floorcast(Renderer* renderer, Map *map, Player *player) {
+    if (!renderer || !player || !map) return;
+
+    Uint32* dest_pixels;
+    int dest_pitch;
+    SDL_LockTexture(renderer->background_texture, NULL, (void**)&dest_pixels, &dest_pitch);
+    SDL_LockSurface(renderer->floor_surface);
+
+    // Precompute all invariant values
+    const float ray_dir_x0 = player->dir.x - player->plane.x;
+    const float ray_dir_y0 = player->dir.y - player->plane.y;
+    const float ray_dir_x1 = player->dir.x + player->plane.x;
+    const float ray_dir_y1 = player->dir.y + player->plane.y;
+    
+    const float ray_diff_x = ray_dir_x1 - ray_dir_x0;
+    const float ray_diff_y = ray_dir_y1 - ray_dir_y0;
+    
+    const float pos_z_scaled = (0.5f + player->pos_z) * renderer->height;
+    const float inv_width = 1.0f / renderer->width;
+    
+    // Texture information
+    const int tex_width = renderer->floor_surface->w;
+    const int tex_height = renderer->floor_surface->h;
+    const int tex_pitch = renderer->floor_surface->pitch / 4; // Convert bytes to pixels
+    const Uint32* tex_pixels = (Uint32*)renderer->floor_surface->pixels;
+    const int tex_width_mask = tex_width - 1;
+    const int tex_height_mask = tex_height - 1;
+    const int dest_pitch_pixels = dest_pitch / 4;
+
+    // AVX2 constants - set once for the entire function
+    const __m256 ymm_tex_width = _mm256_set1_ps((float)tex_width);
+    const __m256 ymm_tex_height = _mm256_set1_ps((float)tex_height);
+    const __m256 ymm_ray_diff_x = _mm256_set1_ps(ray_diff_x);
+    const __m256 ymm_ray_diff_y = _mm256_set1_ps(ray_diff_y);
+    const __m256 ymm_ray_dir_x0 = _mm256_set1_ps(ray_dir_x0);
+    const __m256 ymm_ray_dir_y0 = _mm256_set1_ps(ray_dir_y0);
+    const __m256 ymm_pos_x = _mm256_set1_ps(player->pos.x);
+    const __m256 ymm_pos_y = _mm256_set1_ps(player->pos.y);
+    const __m256 ymm_inv_width = _mm256_set1_ps(inv_width);
+    
+    const __m256i ymm_width_mask = _mm256_set1_epi32(tex_width_mask);
+    const __m256i ymm_height_mask = _mm256_set1_epi32(tex_height_mask);
+    const __m256i ymm_tex_pitch = _mm256_set1_epi32(tex_pitch);
+    const __m256i ymm_zero = _mm256_setzero_si256();
+
+    // Process each row
+    for (int y = renderer->height / 2 + 1; y < renderer->height; y++) {
+        const int p = y - renderer->height / 2;
+        const float row_distance = pos_z_scaled / p;
+        
+        // Precompute step values for this row
+        const float floor_step_x = row_distance * ray_diff_x * inv_width;
+        const float floor_step_y = row_distance * ray_diff_y * inv_width;
+        
+        // Initial floor position for this row
+        float floor_x = player->pos.x + row_distance * ray_dir_x0;
+        float floor_y = player->pos.y + row_distance * ray_dir_y0;
+        
+        // Get destination row pointer
+        Uint32* dest_row = dest_pixels + y * dest_pitch_pixels;
+
+        int x = 0;
+        
+        // AVX2 constants for this specific row
+        const __m256 ymm_row_distance = _mm256_set1_ps(row_distance);
+        const __m256 ymm_floor_step_x = _mm256_set1_ps(floor_step_x);
+        const __m256 ymm_floor_step_y = _mm256_set1_ps(floor_step_y);
+        __m256 ymm_initial_floor_x = _mm256_set1_ps(floor_x);
+        __m256 ymm_initial_floor_y = _mm256_set1_ps(floor_y);
+        
+        // Create offset vector for 8 pixels: [0, 1, 2, 3, 4, 5, 6, 7]
+        const __m256 ymm_offsets = _mm256_set_ps(7.0f, 6.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f, 0.0f);
+
+        // Process 8 pixels at a time with AVX2
+        for (; x <= renderer->width - 8; x += 8) {
+            // Calculate floor positions for 8 pixels: floor_x + offset * floor_step_x
+            __m256 ymm_offset_step_x = _mm256_mul_ps(ymm_offsets, ymm_floor_step_x);
+            __m256 ymm_offset_step_y = _mm256_mul_ps(ymm_offsets, ymm_floor_step_y);
+            
+            __m256 ymm_floor_x = _mm256_add_ps(ymm_initial_floor_x, ymm_offset_step_x);
+            __m256 ymm_floor_y = _mm256_add_ps(ymm_initial_floor_y, ymm_offset_step_y);
+            
+            // Convert to integer cell coordinates (truncate toward zero)
+            __m256i ymm_cell_x = _mm256_cvttps_epi32(ymm_floor_x);
+            __m256i ymm_cell_y = _mm256_cvttps_epi32(ymm_floor_y);
+            
+            // Convert back to float to calculate fractional parts
+            __m256 ymm_cell_x_f = _mm256_cvtepi32_ps(ymm_cell_x);
+            __m256 ymm_cell_y_f = _mm256_cvtepi32_ps(ymm_cell_y);
+            
+            __m256 ymm_frac_x = _mm256_sub_ps(ymm_floor_x, ymm_cell_x_f);
+            __m256 ymm_frac_y = _mm256_sub_ps(ymm_floor_y, ymm_cell_y_f);
+            
+            // Calculate texture coordinates: frac_x * tex_width, frac_y * tex_height
+            __m256 ymm_tex_x_f = _mm256_mul_ps(ymm_frac_x, ymm_tex_width);
+            __m256 ymm_tex_y_f = _mm256_mul_ps(ymm_frac_y, ymm_tex_height);
+            
+            // Convert to integer texture coordinates
+            __m256i ymm_tex_x = _mm256_cvttps_epi32(ymm_tex_x_f);
+            __m256i ymm_tex_y = _mm256_cvttps_epi32(ymm_tex_y_f);
+            
+            // Apply power-of-two wrap-around using bitwise AND
+            ymm_tex_x = _mm256_and_si256(ymm_tex_x, ymm_width_mask);
+            ymm_tex_y = _mm256_and_si256(ymm_tex_y, ymm_height_mask);
+            
+            // Calculate texture memory indices: tex_y * tex_pitch + tex_x
+            __m256i ymm_tex_indices = _mm256_add_epi32(
+                _mm256_mullo_epi32(ymm_tex_y, ymm_tex_pitch),
+                ymm_tex_x
+            );
+            
+            // Gather texture pixels - we need to do this manually since gather can be slow
+            Uint32 pixels[8];
+            int indices[8];
+            _mm256_store_si256((__m256i*)indices, ymm_tex_indices);
+            
+            // Load texture pixels
+            pixels[0] = tex_pixels[indices[0]];
+            pixels[1] = tex_pixels[indices[1]];
+            pixels[2] = tex_pixels[indices[2]];
+            pixels[3] = tex_pixels[indices[3]];
+            pixels[4] = tex_pixels[indices[4]];
+            pixels[5] = tex_pixels[indices[5]];
+            pixels[6] = tex_pixels[indices[6]];
+            pixels[7] = tex_pixels[indices[7]];
+            
+            // Store pixels to destination buffer
+            _mm256_storeu_si256((__m256i*)(dest_row + x), _mm256_load_si256((__m256i*)pixels));
+            
+            // Update scalar positions for the next iteration
+            floor_x += floor_step_x * 8;
+            floor_y += floor_step_y * 8;
+            
+            // Update initial position vectors for next iteration
+            ymm_initial_floor_x = _mm256_set1_ps(floor_x);
+            ymm_initial_floor_y = _mm256_set1_ps(floor_y);
+        }
+        
+        // Process remaining pixels with scalar code
+        for (; x < renderer->width; x++) {
+            const int cell_x = (int)floor_x;
+            const int cell_y = (int)floor_y;
+            
+            const float frac_x = floor_x - cell_x;
+            const float frac_y = floor_y - cell_y;
+            
+            const int texture_x = (int)(tex_width * frac_x) & tex_width_mask;
+            const int texture_y = (int)(tex_height * frac_y) & tex_height_mask;
+            
+            dest_row[x] = tex_pixels[texture_y * tex_pitch + texture_x];
+            
+            floor_x += floor_step_x;
+            floor_y += floor_step_y;
+        }
+    }
+
+    SDL_UnlockTexture(renderer->background_texture);
+    SDL_UnlockSurface(renderer->floor_surface);
+    SDL_RenderCopy(renderer->sdl_renderer, renderer->background_texture, NULL, NULL);
 }
 
 void renderer_render_player_2d(Renderer *renderer, Player *player){
@@ -384,11 +843,9 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
 
   renderer_flush_queue(renderer);
  
-  //renderer_render_map_2d(renderer, map);
-  //renderer_render_player_2d(renderer, player);
+  renderer_render_map_2d(renderer, map);
+  renderer_render_player_2d(renderer, player);
 
-  //renderer_render_texture_atlas(renderer);
-  
   SDL_RenderPresent(renderer->sdl_renderer);
 }
 

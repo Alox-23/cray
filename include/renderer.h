@@ -4,6 +4,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <stdbool.h>
+#include <immintrin.h>
 #include "player.h"
 #include "map.h"
 #include "texturemanager.h"
