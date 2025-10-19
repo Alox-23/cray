@@ -13,7 +13,7 @@ Game* game_create(){
   game->player = player_create();
   if (!game->player) return NULL;
   
-  game->map = map_create(1, 200, 200);
+  game->map = map_create(1, 20, 20);
   if (!game->map) return NULL;
 
   game->keystate = SDL_GetKeyboardState(NULL);

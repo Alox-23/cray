@@ -10,7 +10,7 @@
 #include "renderqueue.h"
 #include "renderobject.h"
 
-#define RENDER_DISTANCE 300
+#define RENDER_DISTANCE 100
 
 typedef struct{
   float m;
