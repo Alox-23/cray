@@ -79,7 +79,7 @@ void renderer_render_map_2d(Renderer *renderer, Map *map){
   SDL_Rect src;
   for (size_t y = 0; y < map->height; y++){
     for (size_t x = 0; x < map->width; x++){
-      int map_val = map_get_value(map, 0, x, y);
+      int map_val = MAP_GET_VALUE(map->buffer, 0, x, y);
       if (map_val){
         rect.x = x * renderer->scale_2d;
         rect.y = y * renderer->scale_2d;
@@ -162,7 +162,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
           side = 1;
         }
 
-        if (map_get_value(map, z_level, map_x, map_y) > 0){
+        if (MAP_GET_VALUE(map->buffer, z_level, map_x, map_y) > 0){
           hit = true;
           break;
         }
@@ -182,7 +182,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
       collision_x = player->pos.x + perp_wall_dist * ray_dir.x;
       collision_y = player->pos.y + perp_wall_dist * ray_dir.y;
       
-      texture_id = map_get_value(map, z_level, map_x, map_y)-1;
+      texture_id = MAP_GET_VALUE(map->buffer, z_level, map_x, map_y)-1;
 
       wall_x; //where exacly on the tile did the ray hit relative to the tiles left-most value
       if (side == 0) wall_x = player->pos.y + perp_wall_dist * ray_dir.y;
@@ -261,11 +261,11 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
       cell_x = (int)(floor_x);
       cell_y = (int)(floor_y);
 
-      float frac_x = (floor_x) / renderer->floor_tile_scale;
-      float frac_y = (floor_y) / renderer->floor_tile_scale;
+      float frac_x = (floor_x - cell_x);
+      float frac_y = (floor_y - cell_y);
 
-      texture_x = (int)(renderer->floor_surface->w * frac_x) & (renderer->floor_surface->w-1);
-      texture_y = (int)(renderer->floor_surface->h * frac_y) & (renderer->floor_surface->h-1);
+      texture_x = (int)(renderer->floor_surface->w * frac_x) & (renderer->floor_surface->w - 1);
+      texture_y = (int)(renderer->floor_surface->h * frac_y) & (renderer->floor_surface->h - 1);
       
       floor_x += floor_step_x;
       floor_y += floor_step_y;

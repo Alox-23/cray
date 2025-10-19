@@ -7,7 +7,7 @@ Map* map_create(size_t depth, size_t width, size_t height){
     return NULL;
   }
    
-  map->buffer = malloc(sizeof(int) * height * width * depth); 
+  map->buffer = malloc(depth * sizeof(int**)); 
   if (!map->buffer){
     return NULL;
   }
@@ -16,6 +16,13 @@ Map* map_create(size_t depth, size_t width, size_t height){
   map->width = width;
   map->depth = depth;
 
+  for (size_t z = 0; z < map->depth; z++){
+    map->buffer[z] = malloc(map->width * sizeof(int*));
+    for (size_t x = 0; x < map->width; x++){
+      map->buffer[z][x] = malloc(map->height * sizeof(int));
+    } 
+  }
+ 
   for (size_t z = 0; z < map->depth; z++){
     for (size_t x = 0; x < map->width; x++){
       for (size_t y = 0; y < map->height; y++){
@@ -35,23 +42,23 @@ Map* map_create(size_t depth, size_t width, size_t height){
   return map;
 }
 
-int map_get_value(Map *map, size_t z, size_t x, size_t y){
-  if (map == NULL || x >= map->width || y >= map->height || z >= map->depth){
-    return 0;
-  }
-  return map->buffer[(z * map->height * map->width) + (y * map->width) + x];
-}
-
 void map_set_value(Map *map, size_t z, size_t x, size_t y, int value){
   if (map == NULL || x >= map->width || y >= map->height){
     return;
   }
-  map->buffer[(z * map->height * map->width) + (y * map->width) + x] = value;
+  map->buffer[z][x][y] = value;
 }
 
 void map_destroy(Map *map){
   if (!map){
     return;
+  }
+
+  for (size_t z = 0; z < map->depth; z++){
+    for (size_t x = 0; x < map->width; x++){
+      free(map->buffer[z][x]);
+    }
+    free(map->buffer[z]);
   }
 
   free(map->buffer);
