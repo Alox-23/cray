@@ -8,7 +8,7 @@ constants:  EXAMPLE_CONSTANT
 Here are some conventions for ensuring memery safety and management:
 
 Create ExampleSubsystem:
-  Function desc.:
+  Function desc:
     ·dynamicly alocates ExampleSubsystem 
     ·initialized its variables/other sybsystems
     ·returns a pointer to ExampleSubsystem
@@ -16,10 +16,13 @@ Create ExampleSubsystem:
     Uppon failer the function retturns NULL
 
 Destoy ExampleSubsystem:
-  Function desc.:
+  Function desc:
     ·calls destroy functions to any subsystems that ExampleSubsystem has
     ·frees any dynamicly alocated arrays/variables
     ·frees ExampleSubsystem pointer
+
+Static Functions:
+ ·All functions that are not called by anothyer subsystem outside of the file, should be static and farward declared at the top of the source file 
 
 How to insure all subsytems are destroyed:
   game_destroy function calls the subsytem_destroy functions to all subsytems it manages

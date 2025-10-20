@@ -212,8 +212,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
   }
 }
 
-/*
-void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
+void renderer_floorcast_scalar(Renderer* renderer, Map *map, Player *player){
   if (!renderer || !player || !map){
     printf("Wront player or renderer pointer inside renderer_floorcast");
   }
@@ -279,10 +278,8 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player){
   SDL_UnlockSurface(renderer->floor_surface);
   SDL_RenderCopy(renderer->sdl_renderer, renderer->background_texture, NULL, NULL);
 }
-*/
-//outside loop calc
-/*
-void renderer_floorcast(Renderer* renderer, Map *map, Player *player) {
+
+void renderer_floorcast_scalar_opt(Renderer* renderer, Map *map, Player *player) {
     if (!renderer || !player || !map) {
         printf("Wrong player or renderer pointer inside renderer_floorcast");
         return;
@@ -361,10 +358,8 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player) {
     SDL_UnlockSurface(renderer->floor_surface);
     SDL_RenderCopy(renderer->sdl_renderer, renderer->background_texture, NULL, NULL);
 }
-*/
-//fixed point arythmetic + outside loop calc
-/*
-void renderer_floorcast(Renderer* renderer, Map *map, Player *player) {
+
+void renderer_floorcast_fixed(Renderer* renderer, Map *map, Player *player) {
     if (!renderer || !player || !map) return;
 
     Uint32* dest_pixels;
@@ -374,20 +369,30 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player) {
 
     // Fixed-point precision (16.16)
     #define FIXED_SHIFT 16
-    #define FLOAT_TO_FIXED(f) ((int)((f) * (1 << FIXED_SHIFT)))
+    #define FIXED_SCALE (1 << FIXED_SHIFT)
+    #define FLOAT_TO_FIXED(f) ((int)((f) * FIXED_SCALE))
+    #define FIXED_MUL(a, b) (((int64_t)(a) * (b)) >> FIXED_SHIFT)
     #define FIXED_TO_INT(f) ((f) >> FIXED_SHIFT)
-    #define FIXED_FRAC(f) ((f) & ((1 << FIXED_SHIFT) - 1))
+    #define FIXED_FRAC(f) ((f) & (FIXED_SCALE - 1))
 
+    // Precompute floating-point values first for accuracy
+    const float ray_dir_x0 = player->dir.x - player->plane.x;
+    const float ray_dir_y0 = player->dir.y - player->plane.y;
+    const float ray_dir_x1 = player->dir.x + player->plane.x;
+    const float ray_dir_y1 = player->dir.y + player->plane.y;
+    const float ray_diff_x = ray_dir_x1 - ray_dir_x0;
+    const float ray_diff_y = ray_dir_y1 - ray_dir_y0;
+    
     // Convert to fixed-point
     const int pos_x = FLOAT_TO_FIXED(player->pos.x);
     const int pos_y = FLOAT_TO_FIXED(player->pos.y);
-    const int ray_dir_x0 = FLOAT_TO_FIXED(player->dir.x - player->plane.x);
-    const int ray_dir_y0 = FLOAT_TO_FIXED(player->dir.y - player->plane.y);
-    const int ray_diff_x = FLOAT_TO_FIXED((player->dir.x + player->plane.x) - (player->dir.x - player->plane.x));
-    const int ray_diff_y = FLOAT_TO_FIXED((player->dir.y + player->plane.y) - (player->dir.y - player->plane.y));
+    const int fixed_ray_dir_x0 = FLOAT_TO_FIXED(ray_dir_x0);
+    const int fixed_ray_dir_y0 = FLOAT_TO_FIXED(ray_dir_y0);
+    const int fixed_ray_diff_x = FLOAT_TO_FIXED(ray_diff_x);
+    const int fixed_ray_diff_y = FLOAT_TO_FIXED(ray_diff_y);
     
-    const int pos_z_scaled = (int)((0.5f + player->pos_z) * renderer->height * (1 << FIXED_SHIFT));
-    const int inv_width = (1 << FIXED_SHIFT) / renderer->width;
+    const int pos_z_scaled = FLOAT_TO_FIXED((0.5f + player->pos_z) * renderer->height);
+    const int fixed_inv_width = FIXED_SCALE / renderer->width;  // Note: This assumes width <= 65536
 
     // Texture info
     const int tex_width = renderer->floor_surface->w;
@@ -400,24 +405,29 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player) {
 
     for (int y = renderer->height / 2 + 1; y < renderer->height; y++) {
         const int p = y - renderer->height / 2;
-        const int row_distance = pos_z_scaled / p;
         
-        const int floor_step_x = (row_distance * ray_diff_x) >> FIXED_SHIFT * inv_width >> FIXED_SHIFT;
-        const int floor_step_y = (row_distance * ray_diff_y) >> FIXED_SHIFT * inv_width >> FIXED_SHIFT;
+        // FIXED: Use proper fixed-point division (or avoid it)
+        // Since p is small, we can use reciprocal multiplication
+        const int row_distance = FIXED_MUL(pos_z_scaled, FIXED_SCALE / p);
         
-        int floor_x = pos_x + ((row_distance * ray_dir_x0) >> FIXED_SHIFT);
-        int floor_y = pos_y + ((row_distance * ray_dir_y0) >> FIXED_SHIFT);
+        // FIXED: Correct fixed-point multiplication chain
+        const int floor_step_x = FIXED_MUL(FIXED_MUL(row_distance, fixed_ray_diff_x), fixed_inv_width);
+        const int floor_step_y = FIXED_MUL(FIXED_MUL(row_distance, fixed_ray_diff_y), fixed_inv_width);
+        
+        // FIXED: Correct position calculation
+        int floor_x = pos_x + FIXED_MUL(row_distance, fixed_ray_dir_x0);
+        int floor_y = pos_y + FIXED_MUL(row_distance, fixed_ray_dir_y0);
         
         Uint32* dest_row = dest_pixels + y * dest_pitch_pixels;
 
         for (int x = 0; x < renderer->width; x++) {
-            // Extract fractional parts directly
+            // Extract fractional parts
             const int frac_x = FIXED_FRAC(floor_x);
             const int frac_y = FIXED_FRAC(floor_y);
             
-            // Texture coordinates using fixed-point math
-            const int texture_x = (frac_x * tex_width) >> FIXED_SHIFT;
-            const int texture_y = (frac_y * tex_height) >> FIXED_SHIFT;
+            // Convert to texture coordinates (0 to tex_width-1)
+            const int texture_x = FIXED_MUL(frac_x, tex_width);
+            const int texture_y = FIXED_MUL(frac_y, tex_height);
             
             dest_row[x] = tex_pixels[(texture_y & tex_height_mask) * tex_pitch + (texture_x & tex_width_mask)];
             
@@ -429,11 +439,16 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player) {
     SDL_UnlockTexture(renderer->background_texture);
     SDL_UnlockSurface(renderer->floor_surface);
     SDL_RenderCopy(renderer->sdl_renderer, renderer->background_texture, NULL, NULL);
+    
+    #undef FIXED_SHIFT
+    #undef FIXED_SCALE
+    #undef FLOAT_TO_FIXED
+    #undef FIXED_MUL
+    #undef FIXED_TO_INT
+    #undef FIXED_FRAC
 }
-*/ 
-//SSE version
-/*
-void renderer_floorcast(Renderer* renderer, Map *map, Player *player) {
+
+void renderer_floorcast_sse(Renderer* renderer, Map *map, Player *player) {
     if (!renderer || !player || !map) return;
 
     Uint32* dest_pixels;
@@ -575,9 +590,8 @@ void renderer_floorcast(Renderer* renderer, Map *map, Player *player) {
     SDL_UnlockSurface(renderer->floor_surface);
     SDL_RenderCopy(renderer->sdl_renderer, renderer->background_texture, NULL, NULL);
 }
-*/ 
-//AVX version
-void renderer_floorcast(Renderer* renderer, Map *map, Player *player) {
+
+void renderer_floorcast_avx(Renderer* renderer, Map *map, Player *player) {
     if (!renderer || !player || !map) return;
 
     Uint32* dest_pixels;
@@ -830,7 +844,7 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   SDL_RenderClear(renderer->sdl_renderer);
 
   renderer_raycast(renderer, map, player);
-  renderer_floorcast(renderer, map, player);
+  renderer_floorcast_fixed(renderer, map, player);
   
   SDL_Rect rect;
   rect.x = 0;
@@ -843,8 +857,8 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
 
   renderer_flush_queue(renderer);
  
-  renderer_render_map_2d(renderer, map);
-  renderer_render_player_2d(renderer, player);
+  //renderer_render_map_2d(renderer, map);
+  //renderer_render_player_2d(renderer, player);
 
   SDL_RenderPresent(renderer->sdl_renderer);
 }
