@@ -1,151 +1,168 @@
-#include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL.h>
 #include <stdio.h>
-
-#include "../include/texturemanager.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include <math.h>
 
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 600
 
-int main(){
-    // Initialize SDL
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-        printf("SDL_Init Error: %s\n", SDL_GetError());
-        return 1;
-    }
+typedef struct {
+    Uint32* buffer;
+    int width;
+    int height;
+    bool running;
+    
+    // Floor casting parameters
+    float posX, posY;
+    float dirX, dirY;
+    float planeX, planeY;
+} SharedData;
 
-    // Initialize SDL_image
-    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
-        printf("IMG_Init Error: %s\n", IMG_GetError());
-        SDL_Quit();
-        return 1;
-    }
-
-    // Create window
-    SDL_Window* window = SDL_CreateWindow("Texture Manager Test",
-                                        SDL_WINDOWPOS_CENTERED,
-                                        SDL_WINDOWPOS_CENTERED,
-                                        SCREEN_WIDTH, SCREEN_HEIGHT,
-                                        SDL_WINDOW_SHOWN);
-    if (!window) {
-        printf("SDL_CreateWindow Error: %s\n", SDL_GetError());
-        IMG_Quit();
-        SDL_Quit();
-        return 1;
-    }
-
-    // Create renderer
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, 
-                                             SDL_RENDERER_ACCELERATED | 
-                                             SDL_RENDERER_PRESENTVSYNC);
-    if (!renderer) {
-        printf("SDL_CreateRenderer Error: %s\n", SDL_GetError());
-        SDL_DestroyWindow(window);
-        IMG_Quit();
-        SDL_Quit();
-        return 1;
-    }
-
-    if (TTF_Init() == -1) {
-      printf("TTF_Init Error: %s\n", TTF_GetError());
-      SDL_DestroyRenderer(renderer);
-      SDL_DestroyWindow(window);
-      IMG_Quit();
-      SDL_Quit();
-      return 1;
-    }
-
-    // Load a font
-    TTF_Font* font = TTF_OpenFont("assets/font.ttf", 16);
-    if (!font) {
-      printf("TTF_OpenFont Error: %s\n", TTF_GetError());
-      // Continue without font, or handle error
-    }
-
-    // Create texture manager
-    TextureManager* tm = texturemanager_create(5, renderer, 32, 32);
-    if (!tm) {
-        printf("Failed to create texture manager\n");
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
-        IMG_Quit();
-        SDL_Quit();
-        return 1;
-    }
-
-    // Load textures (replace with your actual texture paths)
-    const char* texture_paths[] = {
-        "assets/texture.jpeg",
-        "assets/texture2.jpeg",
-        "assets/texture3.png",
-        "assets/texture4.jpeg",
-        "assets/texture5.jpeg"
-    };
-
-    for (int i = 0; i < 5; i++) {
-        if (texturemanager_add_texture(tm, renderer, texture_paths[i]) == -1) {
-            printf("Failed to load texture %d\n", i);
+// Floor casting thread function
+int floorcast_thread(void* data) {
+    SharedData* shared = (SharedData*)data;
+    
+    // Initialize player position and direction
+    shared->posX = 2.0f;
+    shared->posY = 2.0f;
+    shared->dirX = -1.0f;
+    shared->dirY = 0.0f;
+    shared->planeX = 0.0f;
+    shared->planeY = 0.66f;
+    
+    while (shared->running) {
+        // Simple rotation for animation
+        static float rotation = 0.0f;
+        rotation += 0.00000001f;
+        
+        float oldDirX = shared->dirX;
+        shared->dirX = shared->dirX * cos(rotation) - shared->dirY * sin(rotation);
+        shared->dirY = oldDirX * sin(rotation) + shared->dirY * cos(rotation);
+        float oldPlaneX = shared->planeX;
+        shared->planeX = shared->planeX * cos(rotation) - shared->planeY * sin(rotation);
+        shared->planeY = oldPlaneX * sin(rotation) + shared->planeY * cos(rotation);
+        
+        // Perform floor casting
+        for (int y = shared->height / 2; y < shared->height; y++) {
+            // Ray direction for floor casting
+            float rayDirX0 = shared->dirX - shared->planeX;
+            float rayDirY0 = shared->dirY - shared->planeY;
+            float rayDirX1 = shared->dirX + shared->planeX;
+            float rayDirY1 = shared->dirY + shared->planeY;
+            
+            int p = y - shared->height / 2;
+            float posZ = 0.5f * shared->height;
+            float rowDistance = posZ / p;
+            
+            float floorStepX = rowDistance * (rayDirX1 - rayDirX0) / shared->width;
+            float floorStepY = rowDistance * (rayDirY1 - rayDirY0) / shared->width;
+            
+            float floorX = shared->posX + rowDistance * rayDirX0;
+            float floorY = shared->posY + rowDistance * rayDirY0;
+            
+            for (int x = 0; x < shared->width; x++) {
+                int cellX = (int)(floorX);
+                int cellY = (int)(floorY);
+                
+                // Checkerboard pattern
+                Uint32 color = ((cellX + cellY) & 1) ? 0xFF404040 : 0xFF808080;
+                
+                // Draw floor
+                shared->buffer[y * shared->width + x] = color;
+                // Draw ceiling (darker)
+                //shared->buffer[(shared->height - y - 1) * shared->width + x] = color - 0x00202020;
+                
+                floorX += floorStepX;
+                floorY += floorStepY;
+            }
         }
     }
+    
+    return 0;
+}
 
-    // Main game loop
+int main(int argc, char* argv[]) {
+    SDL_Init(SDL_INIT_VIDEO);
+    
+    SDL_Window* window = SDL_CreateWindow(
+        "Simple Multi-threaded Floorcasting",
+        SDL_WINDOWPOS_CENTERED,
+        SDL_WINDOWPOS_CENTERED,
+        SCREEN_WIDTH,
+        SCREEN_HEIGHT,
+        SDL_WINDOW_SHOWN
+    );
+    
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    SDL_Texture* texture = SDL_CreateTexture(
+        renderer,
+        SDL_PIXELFORMAT_ARGB8888,
+        SDL_TEXTUREACCESS_STREAMING,
+        SCREEN_WIDTH,
+        SCREEN_HEIGHT
+    );
+    
+    // Allocate buffer
+    Uint32* buffer = (Uint32*)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(Uint32));
+    
+    // Initialize shared data - much simpler!
+    SharedData shared = {
+        .buffer = buffer,
+        .width = SCREEN_WIDTH,
+        .height = SCREEN_HEIGHT,
+        .running = true
+    };
+    
+    // Create floor casting thread
+    SDL_Thread* floorcastThread = SDL_CreateThread(floorcast_thread, "FloorcastThread", &shared);
+    
+    bool quit = false;
     SDL_Event event;
-    int quit = 0;
+    Uint32 last_time = SDL_GetTicks();
+    int frame_count = 0;
+
     while (!quit) {
-        // Handle events
+        Uint32 current_time = SDL_GetTicks();
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
-                quit = 1;
+                quit = true;
             }
         }
-
-        // Clear screen
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        
+        // Simply copy the buffer every frame - the thread is continuously updating it
+        void* pixels;
+        int pitch;
+        SDL_LockTexture(texture, NULL, &pixels, &pitch);
+        memcpy(pixels, buffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(Uint32));
+        SDL_UnlockTexture(texture);
+        
+        // Render
         SDL_RenderClear(renderer);
-
-        // Draw all textures in a grid pattern
-        int x = 50, y = 50;
-        SDL_Color white = {255, 255, 255, 255};
-        for (size_t i = 0; i <= tm->texture_count; i++) {
-            SDL_Texture* tex = texturemanager_get_texture(tm, i);
-            if (tex) {
-                // Get texture dimensions
-                int w, h;
-                SDL_QueryTexture(tex, NULL, NULL, &w, &h);
-                
-                // Create destination rect
-                SDL_Rect dst = {x, y, w, h};
-                SDL_RenderCopy(renderer, tex, NULL, &dst);
-
-                char id_text[32];
-                snprintf(id_text, sizeof(id_text), "%d", i);
-
-                if (font) {
-                  SDL_Surface* text_surface = TTF_RenderText_Solid(font, id_text, white);
-                  SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
-                  SDL_Rect text_rect = {x+1, y +5, text_surface->w, text_surface->h};
-                  SDL_RenderCopy(renderer, text_texture, NULL, &text_rect);
-                  SDL_FreeSurface(text_surface);
-                  SDL_DestroyTexture(text_texture);
-                }
-                
-                // Update position for next texture
-                x += w + 20;
-                if (x > SCREEN_WIDTH - w) {
-                    x = 50;
-                    y += h + 20;
-                }
-            }
-        }
-
-        // Update screen
+        SDL_RenderCopy(renderer, texture, NULL, NULL);
         SDL_RenderPresent(renderer);
-    }
+    
+        
+// Frame rate calculation
+        frame_count++;
+        if (current_time - last_time >= 1000) {
+            printf("FPS: %d\n", frame_count);
+            frame_count = 0;
+            last_time = current_time;
+        }
+        
+
+  }
+    
     // Cleanup
-    texturemanager_destroy(tm);
+    shared.running = false;
+    SDL_WaitThread(floorcastThread, NULL);
+    
+    free(buffer);
+    SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
-    IMG_Quit();
     SDL_Quit();
-
-    return 0; 
+    
+    return 0;
 }
