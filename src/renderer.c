@@ -69,6 +69,117 @@ Renderer* renderer_create(){
   return renderer;
 }
 
+void renderer_destroy(Renderer *renderer){
+  if(!renderer){
+    return;
+  }
+
+  SDL_DestroyTexture(renderer->background_texture);
+  SDL_FreeSurface(renderer->floor_surface);
+  texturemanager_destroy(renderer->texture_manager);
+  renderqueue_destroy(renderer->render_queue);
+  SDL_DestroyRenderer(renderer->sdl_renderer);
+  SDL_DestroyWindow(renderer->window);
+  free(renderer);
+  renderer = NULL;
+}
+
+void renderer_render(Renderer *renderer, Player *player, Map *map){
+  SDL_RenderClear(renderer->sdl_renderer);
+
+  renderer_raycast(renderer, map, player);
+  renderer_floorcast_fixed(renderer, map, player);
+  
+  SDL_Rect rect;
+  rect.x = 0;
+  rect.y = 0;
+  rect.h = renderer->height / 2;
+  rect.w = renderer->width;
+ 
+  SDL_SetRenderDrawColor(renderer->sdl_renderer, 150, 150, 220, 255);
+  SDL_RenderFillRect(renderer->sdl_renderer, &rect);
+
+  renderer_flush_queue(renderer);
+ 
+  //renderer_render_map_2d(renderer, map);
+  //renderer_render_player_2d(renderer, player);
+
+  SDL_RenderPresent(renderer->sdl_renderer);
+}
+
+void renderer_flush_queue(Renderer* renderer) {
+  if (!renderer || !renderer->texture_manager) return;
+  
+  SDL_Texture* atlas = texturemanager_get_atlas(renderer->texture_manager);
+  if (!atlas) return;
+ 
+  renderqueue_sort(renderer->render_queue);
+
+  SDL_Rect final_src_rect;
+  RenderObject* entity;
+  for (int i = 0; i < renderer->render_queue->count; i++) {
+    entity = &renderer->render_queue->render_object_array[i];
+
+    FogSetting r_settings = {0.01, 1, 1, 0.3};
+    FogSetting g_settings = {0.01, 1, 1, 0.3};
+    FogSetting b_settings = {0.01, 1, 1, 0.3};
+    /*
+    float time = SDL_GetTicks() * 0.001f;
+    FogSetting r_settings = {0.5 + 0.3*sinf(time), 2, 0.9, 0.1};
+    FogSetting g_settings = {0.5 + 0.3*sinf(time + 2.0f), 3, 0.9, 0.1};  
+    FogSetting b_settings = {0.5 + 0.3*sinf(time + 4.0f), 4, 0.9, 0.1};
+    */
+    float rb = renderer_calc_fog_brightness(r_settings, entity->perp_dist);
+    float gb = renderer_calc_fog_brightness(g_settings, entity->perp_dist);
+    float bb = renderer_calc_fog_brightness(b_settings, entity->perp_dist);
+    SDL_Color final_color = {
+      .r = 255 * rb,
+      .g = 255 * gb,
+      .b = 255 * bb, 
+      .a = 255
+    };
+
+    SDL_SetTextureColorMod(atlas, final_color.r, final_color.g, final_color.b);
+
+    final_src_rect = texturemanager_get_texcoord(renderer->texture_manager, entity->texture_id);
+    final_src_rect.x += entity->src_rect.x;
+    final_src_rect.y += entity->src_rect.y;
+    final_src_rect.w = entity->src_rect.w;
+    final_src_rect.h = entity->src_rect.h;
+    
+    SDL_RenderCopy(renderer->sdl_renderer, atlas, &final_src_rect, &entity->dest_rect);
+  }
+  renderqueue_clear(renderer->render_queue);
+}
+
+float renderer_calc_fog_brightness(FogSetting s, double var){
+  float fb = s.c / (1 + var*s.m);
+  if (fb > s.mxb) return s.mxb;
+  if (fb < s.mnb) return s.mnb;
+  return fb;
+} 
+
+void renderer_render_player_2d(Renderer *renderer, Player *player){
+  if (!renderer || !player){
+    printf("Wrong player or renderer pointer parameter inside render_player_2d\n");
+    return;
+  }
+  
+  double offset = renderer->scale_2d/2 * player->player_size;
+
+  SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 0, 255, 255); 
+  player->rect.x = (player->pos.x) * renderer->scale_2d - offset;
+  player->rect.y = (player->pos.y) * renderer->scale_2d - offset;
+  player->rect.w = renderer->scale_2d * player->player_size;
+  player->rect.h = renderer->scale_2d * player->player_size;
+  SDL_RenderDrawRect(renderer->sdl_renderer, &player->rect); 
+  int line_end_x = player->rect.x + player->dir.x * renderer->scale_2d + offset;
+  int line_end_y = player->rect.y + player->dir.y * renderer->scale_2d + offset;
+  int line_start_x = player->rect.x + offset;
+  int line_start_y = player->rect.y + offset;
+  SDL_RenderDrawLine(renderer->sdl_renderer, line_start_x, line_start_y, line_end_x, line_end_y);
+}
+
 void renderer_render_map_2d(Renderer *renderer, Map *map){
   if (!renderer || !map){
     printf("worng renderer or map parameter in render_map2d_Renderer");
@@ -92,6 +203,21 @@ void renderer_render_map_2d(Renderer *renderer, Map *map){
       }
     }
   }
+}
+
+void renderer_render_texture_atlas(Renderer* renderer){
+  if (!renderer){
+    return;
+  }
+
+  SDL_Rect rect = {
+    .x = renderer->width - 300,
+    .y = renderer->height - 300,
+    .w = 300,
+    .h = 300,
+  };
+
+  SDL_RenderCopy(renderer->sdl_renderer, texturemanager_get_atlas(renderer->texture_manager), NULL, &rect);
 }
 
 void renderer_raycast(Renderer* renderer, Map *map, Player *player){
@@ -210,153 +336,6 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
       obj->perp_dist = perp_wall_dist;
     }
   }
-}
-
-void renderer_floorcast_scalar(Renderer* renderer, Map *map, Player *player){
-  if (!renderer || !player || !map){
-    printf("Wront player or renderer pointer inside renderer_floorcast");
-  }
-
-  Uint32* dest_pixels;
-  int dest_pitch;
-
-  SDL_LockTexture(renderer->background_texture, NULL, (void**)&dest_pixels, &dest_pitch);
-  SDL_LockSurface(renderer->floor_surface);
-  
-  float ray_dir_x0;
-  float ray_dir_y0;
-  float ray_dir_x1;
-  float ray_dir_y1;
-  int p;
-  float pos_z;
-  float row_distance;
-  float floor_step_x;
-  float floor_step_y;
-  float floor_x;
-  float floor_y;
-  int cell_x;
-  int cell_y;
-  int texture_x;
-  int texture_y;
-
-  for (int y = renderer->height/2; y < renderer->height; y++){
-    ray_dir_x0 = player->dir.x - player->plane.x;
-    ray_dir_y0 = player->dir.y - player->plane.y;
-    ray_dir_x1 = player->dir.x + player->plane.x;
-    ray_dir_y1 = player->dir.y + player->plane.y;
-
-    p = y - renderer->height /2;
-
-    pos_z = (0.5 + player->pos_z) * renderer->height;
-
-    row_distance = pos_z / p;
-
-    floor_step_x = row_distance * (ray_dir_x1 - ray_dir_x0) / renderer->width;
-    floor_step_y = row_distance * (ray_dir_y1 - ray_dir_y0) / renderer->width;
-    
-    floor_x = player->pos.x + row_distance * ray_dir_x0;
-    floor_y = player->pos.y + row_distance * ray_dir_y0;
-
-    for (int x = 0; x < renderer->width; x++){
-      cell_x = (int)(floor_x);
-      cell_y = (int)(floor_y);
-
-      float frac_x = (floor_x - cell_x);
-      float frac_y = (floor_y - cell_y);
-
-      texture_x = (int)(renderer->floor_surface->w * frac_x) & (renderer->floor_surface->w - 1);
-      texture_y = (int)(renderer->floor_surface->h * frac_y) & (renderer->floor_surface->h - 1);
-      
-      floor_x += floor_step_x;
-      floor_y += floor_step_y;
-
-      Uint32 surface_pixel = ((Uint32*)renderer->floor_surface->pixels)[texture_y * (renderer->floor_surface->pitch / 4) + texture_x];
-      dest_pixels[y * (dest_pitch / 4) + x] = surface_pixel;
-    }
-  }
-  SDL_UnlockTexture(renderer->background_texture);
-  SDL_UnlockSurface(renderer->floor_surface);
-  SDL_RenderCopy(renderer->sdl_renderer, renderer->background_texture, NULL, NULL);
-}
-
-void renderer_floorcast_scalar_opt(Renderer* renderer, Map *map, Player *player) {
-    if (!renderer || !player || !map) {
-        printf("Wrong player or renderer pointer inside renderer_floorcast");
-        return;
-    }
-
-    Uint32* dest_pixels;
-    int dest_pitch;
-    SDL_LockTexture(renderer->background_texture, NULL, (void**)&dest_pixels, &dest_pitch);
-    SDL_LockSurface(renderer->floor_surface);
-
-    // PRECOMPUTE ALL INVARIANT VALUES
-    const float ray_dir_x0 = player->dir.x - player->plane.x;
-    const float ray_dir_y0 = player->dir.y - player->plane.y;
-    const float ray_dir_x1 = player->dir.x + player->plane.x;
-    const float ray_dir_y1 = player->dir.y + player->plane.y;
-    
-    // Precompute ray direction differences
-    const float ray_diff_x = ray_dir_x1 - ray_dir_x0;
-    const float ray_diff_y = ray_dir_y1 - ray_dir_y0;
-    
-    // Precompute scaled values
-    const float pos_z_scaled = (0.5f + player->pos_z) * renderer->height;
-    const float inv_width = 1.0f / renderer->width;
-    
-    // Precompute texture access values
-    const int tex_width = renderer->floor_surface->w;
-    const int tex_height = renderer->floor_surface->h;
-    const int tex_pitch = renderer->floor_surface->pitch / 4; // bytes to pixels
-    const Uint32* tex_pixels = (Uint32*)renderer->floor_surface->pixels;
-    const int tex_width_mask = tex_width - 1;
-    const int tex_height_mask = tex_height - 1;
-    
-    // Precompute dest pitch in pixels
-    const int dest_pitch_pixels = dest_pitch / 4;
-
-    for (int y = renderer->height / 2; y < renderer->height; y++) {
-        const int p = y - renderer->height / 2;
-        
-        // Replace division with multiplication
-        const float row_distance = pos_z_scaled / p;
-        
-        // Precompute step values for this row
-        const float floor_step_x = row_distance * ray_diff_x * inv_width;
-        const float floor_step_y = row_distance * ray_diff_y * inv_width;
-        
-        // Initial floor position
-        float floor_x = player->pos.x + row_distance * ray_dir_x0;
-        float floor_y = player->pos.y + row_distance * ray_dir_y0;
-        
-        // Get destination row pointer for faster access
-        Uint32* dest_row = dest_pixels + y * dest_pitch_pixels;
-
-        for (int x = 0; x < renderer->width; x++) {
-            // Extract integer and fractional parts in one operation
-            const int cell_x = (int)floor_x;
-            const int cell_y = (int)floor_y;
-            
-            // Get fractional parts directly (faster than subtraction)
-            const float frac_x = floor_x - cell_x;
-            const float frac_y = floor_y - cell_y;
-            
-            // Calculate texture coordinates with power-of-two optimization
-            const int texture_x = (int)(tex_width * frac_x) & tex_width_mask;
-            const int texture_y = (int)(tex_height * frac_y) & tex_height_mask;
-            
-            // Get texture pixel and store
-            dest_row[x] = tex_pixels[texture_y * tex_pitch + texture_x];
-            
-            // Increment position
-            floor_x += floor_step_x;
-            floor_y += floor_step_y;
-        }
-    }
-    
-    SDL_UnlockTexture(renderer->background_texture);
-    SDL_UnlockSurface(renderer->floor_surface);
-    SDL_RenderCopy(renderer->sdl_renderer, renderer->background_texture, NULL, NULL);
 }
 
 void renderer_floorcast_fixed(Renderer* renderer, Map *map, Player *player) {
@@ -750,130 +729,4 @@ void renderer_floorcast_avx(Renderer* renderer, Map *map, Player *player) {
     SDL_UnlockTexture(renderer->background_texture);
     SDL_UnlockSurface(renderer->floor_surface);
     SDL_RenderCopy(renderer->sdl_renderer, renderer->background_texture, NULL, NULL);
-}
-
-void renderer_render_player_2d(Renderer *renderer, Player *player){
-  if (!renderer || !player){
-    printf("Wrong player or renderer pointer parameter inside render_player_2d\n");
-    return;
-  }
-  
-  double offset = renderer->scale_2d/2 * player->player_size;
-
-  SDL_SetRenderDrawColor(renderer->sdl_renderer, 0, 0, 255, 255); 
-  player->rect.x = (player->pos.x) * renderer->scale_2d - offset;
-  player->rect.y = (player->pos.y) * renderer->scale_2d - offset;
-  player->rect.w = renderer->scale_2d * player->player_size;
-  player->rect.h = renderer->scale_2d * player->player_size;
-  SDL_RenderDrawRect(renderer->sdl_renderer, &player->rect); 
-  int line_end_x = player->rect.x + player->dir.x * renderer->scale_2d + offset;
-  int line_end_y = player->rect.y + player->dir.y * renderer->scale_2d + offset;
-  int line_start_x = player->rect.x + offset;
-  int line_start_y = player->rect.y + offset;
-  SDL_RenderDrawLine(renderer->sdl_renderer, line_start_x, line_start_y, line_end_x, line_end_y);
-}
-
-float renderer_calc_fog_brightness(FogSetting s, double var){
-  float fb = s.c / (1 + var*s.m);
-  if (fb > s.mxb) return s.mxb;
-  if (fb < s.mnb) return s.mnb;
-  return fb;
-} 
-
-void renderer_flush_queue(Renderer* renderer) {
-  if (!renderer || !renderer->texture_manager) return;
-  
-  SDL_Texture* atlas = texturemanager_get_atlas(renderer->texture_manager);
-  if (!atlas) return;
- 
-  renderqueue_sort(renderer->render_queue);
-
-  SDL_Rect final_src_rect;
-  RenderObject* entity;
-  for (int i = 0; i < renderer->render_queue->count; i++) {
-    entity = &renderer->render_queue->render_object_array[i];
-
-    FogSetting r_settings = {0.01, 1, 1, 0.3};
-    FogSetting g_settings = {0.01, 1, 1, 0.3};
-    FogSetting b_settings = {0.01, 1, 1, 0.3};
-    /*
-    float time = SDL_GetTicks() * 0.001f;
-    FogSetting r_settings = {0.5 + 0.3*sinf(time), 2, 0.9, 0.1};
-    FogSetting g_settings = {0.5 + 0.3*sinf(time + 2.0f), 3, 0.9, 0.1};  
-    FogSetting b_settings = {0.5 + 0.3*sinf(time + 4.0f), 4, 0.9, 0.1};
-    */
-    float rb = renderer_calc_fog_brightness(r_settings, entity->perp_dist);
-    float gb = renderer_calc_fog_brightness(g_settings, entity->perp_dist);
-    float bb = renderer_calc_fog_brightness(b_settings, entity->perp_dist);
-    SDL_Color final_color = {
-      .r = 255 * rb,
-      .g = 255 * gb,
-      .b = 255 * bb, 
-      .a = 255
-    };
-
-    SDL_SetTextureColorMod(atlas, final_color.r, final_color.g, final_color.b);
-
-    final_src_rect = texturemanager_get_texcoord(renderer->texture_manager, entity->texture_id);
-    final_src_rect.x += entity->src_rect.x;
-    final_src_rect.y += entity->src_rect.y;
-    final_src_rect.w = entity->src_rect.w;
-    final_src_rect.h = entity->src_rect.h;
-    
-    SDL_RenderCopy(renderer->sdl_renderer, atlas, &final_src_rect, &entity->dest_rect);
-  }
-  renderqueue_clear(renderer->render_queue);
-}
-
-void renderer_render_texture_atlas(Renderer* renderer){
-  if (!renderer){
-    return;
-  }
-
-  SDL_Rect rect = {
-    .x = renderer->width - 300,
-    .y = renderer->height - 300,
-    .w = 300,
-    .h = 300,
-  };
-
-  SDL_RenderCopy(renderer->sdl_renderer, texturemanager_get_atlas(renderer->texture_manager), NULL, &rect);
-}
-
-void renderer_render(Renderer *renderer, Player *player, Map *map){
-  SDL_RenderClear(renderer->sdl_renderer);
-
-  renderer_raycast(renderer, map, player);
-  renderer_floorcast_fixed(renderer, map, player);
-  
-  SDL_Rect rect;
-  rect.x = 0;
-  rect.y = 0;
-  rect.h = renderer->height / 2;
-  rect.w = renderer->width;
- 
-  SDL_SetRenderDrawColor(renderer->sdl_renderer, 150, 150, 220, 255);
-  SDL_RenderFillRect(renderer->sdl_renderer, &rect);
-
-  renderer_flush_queue(renderer);
- 
-  //renderer_render_map_2d(renderer, map);
-  //renderer_render_player_2d(renderer, player);
-
-  SDL_RenderPresent(renderer->sdl_renderer);
-}
-
-void renderer_destroy(Renderer *renderer){
-  if(!renderer){
-    return;
-  }
-
-  SDL_DestroyTexture(renderer->background_texture);
-  SDL_FreeSurface(renderer->floor_surface);
-  texturemanager_destroy(renderer->texture_manager);
-  renderqueue_destroy(renderer->render_queue);
-  SDL_DestroyRenderer(renderer->sdl_renderer);
-  SDL_DestroyWindow(renderer->window);
-  free(renderer);
-  renderer = NULL;
 }
