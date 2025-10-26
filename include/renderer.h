@@ -11,7 +11,7 @@
 #include "renderqueue.h"
 #include "renderobject.h"
 
-#define RENDER_DISTANCE 100
+#define RENDER_DISTANCE 300
 
 typedef struct{
   float m;
@@ -21,13 +21,28 @@ typedef struct{
 }FogSetting;
 
 typedef struct{
-  double scale_2d;
+  SDL_Surface* floor_surface;
+  Uint32* buffer;
+
+  float player_pos_z;
+  float player_pos_x;
+  float player_pos_y;
+  float player_angle;
+  float player_plane_x;
+  float player_plane_y;
+  float player_dir_x;
+  float player_dir_y;
+  
+  int width, height, start_y, end_y;
+}FloorCastingThreadData;
+
+typedef struct{
+  float scale_2d;
   int width;
   int height;
   int raycasting_scale;
-  float floor_tile_scale;
-  SDL_Surface* floor_surface;
   SDL_Texture* background_texture;
+  SDL_Surface* floor_surface;
   SDL_Renderer *sdl_renderer;
   SDL_Window *window;
   RenderQueue* render_queue;
@@ -41,6 +56,8 @@ void renderer_render_player_2d(Renderer *renderer, Player *player);
 void renderer_render_map_2d(Renderer *renderer, Map *map);
 void renderer_raycast(Renderer* renderer, Map *map, Player *player);
 void renderer_floorcast_fixed(Renderer* renderer, Map *map, Player *player);
+int renderer_floorcast_fixed_thread(void* data);
+void renderer_sync_floorcast_thread_data(Renderer* renderer, Map* map, Player* player);
 void renderer_floorcast_sse(Renderer* renderer, Map *map, Player *player);
 void renderer_floorcast_avx(Renderer* renderer, Map *map, Player *player);
 void renderer_flush_queue(Renderer* renderer);

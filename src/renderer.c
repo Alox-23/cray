@@ -64,8 +64,6 @@ Renderer* renderer_create(){
     return NULL;
   }
 
-  renderer->floor_tile_scale = 2.0f;
-
   return renderer;
 }
 
@@ -418,6 +416,89 @@ void renderer_floorcast_fixed(Renderer* renderer, Map *map, Player *player) {
     SDL_UnlockTexture(renderer->background_texture);
     SDL_UnlockSurface(renderer->floor_surface);
     SDL_RenderCopy(renderer->sdl_renderer, renderer->background_texture, NULL, NULL);
+    
+    #undef FIXED_SHIFT
+    #undef FIXED_SCALE
+    #undef FLOAT_TO_FIXED
+    #undef FIXED_MUL
+    #undef FIXED_TO_INT
+    #undef FIXED_FRAC
+}
+
+int renderer_floorcast_fixed_thread(void *data) {
+    FloorCastingThreadData* thread_data = (FloorCastingThreadData*)data;
+
+    SDL_LockSurface(thread_data->floor_surface);
+
+    // Fixed-point precision (16.16)
+    #define FIXED_SHIFT 16
+    #define FIXED_SCALE (1 << FIXED_SHIFT)
+    #define FLOAT_TO_FIXED(f) ((int)((f) * FIXED_SCALE))
+    #define FIXED_MUL(a, b) (((int64_t)(a) * (b)) >> FIXED_SHIFT)
+    #define FIXED_TO_INT(f) ((f) >> FIXED_SHIFT)
+    #define FIXED_FRAC(f) ((f) & (FIXED_SCALE - 1))
+
+    // Precompute floating-point values first for accuracy
+    const float ray_dir_x0 = thread_data->player_dir_x - thread_data->player_plane_x;
+    const float ray_dir_y0 = thread_data->player_dir_y - thread_data->player_plane_y;
+    const float ray_dir_x1 = thread_data->player_dir_x + thread_data->player_plane_x;
+    const float ray_dir_y1 = thread_data->player_dir_y + thread_data->player_plane_y;
+    const float ray_diff_x = ray_dir_x1 - ray_dir_x0;
+    const float ray_diff_y = ray_dir_y1 - ray_dir_y0;
+    
+    // Convert to fixed-point
+    const int pos_x = FLOAT_TO_FIXED(thread_data->player_pos_x);
+    const int pos_y = FLOAT_TO_FIXED(thread_data->player_pos_y);
+    const int fixed_ray_dir_x0 = FLOAT_TO_FIXED(ray_dir_x0);
+    const int fixed_ray_dir_y0 = FLOAT_TO_FIXED(ray_dir_y0);
+    const int fixed_ray_diff_x = FLOAT_TO_FIXED(ray_diff_x);
+    const int fixed_ray_diff_y = FLOAT_TO_FIXED(ray_diff_y);
+    
+    const int pos_z_scaled = FLOAT_TO_FIXED((0.5f + thread_data->player_pos_z) * thread_data->height);
+    const int fixed_inv_width = FIXED_SCALE / thread_data->width;  // Note: This assumes width <= 65536
+
+    // Texture info
+    const int tex_width = thread_data->floor_surface->w;
+    const int tex_height = thread_data->floor_surface->h;
+    const int tex_pitch = thread_data->floor_surface->pitch / 4;
+    const Uint32* tex_pixels = (Uint32*)thread_data->floor_surface->pixels;
+    const int tex_width_mask = tex_width - 1;
+    const int tex_height_mask = tex_height - 1;
+
+    for (int y = thread_data->start_y; y < thread_data->end_y; y++) {
+        const int p = y - thread_data->height / 2;
+        
+        // FIXED: Use proper fixed-point division (or avoid it)
+        // Since p is small, we can use reciprocal multiplication
+        const int row_distance = FIXED_MUL(pos_z_scaled, FIXED_SCALE / p);
+        
+        // FIXED: Correct fixed-point multiplication chain
+        const int floor_step_x = FIXED_MUL(FIXED_MUL(row_distance, fixed_ray_diff_x), fixed_inv_width);
+        const int floor_step_y = FIXED_MUL(FIXED_MUL(row_distance, fixed_ray_diff_y), fixed_inv_width);
+        
+        // FIXED: Correct position calculation
+        int floor_x = pos_x + FIXED_MUL(row_distance, fixed_ray_dir_x0);
+        int floor_y = pos_y + FIXED_MUL(row_distance, fixed_ray_dir_y0);
+        
+        Uint32* dest_row = thread_data->buffer + y * thread_data->width;
+
+        for (int x = 0; x < thread_data->width; x++) {
+            // Extract fractional parts
+            const int frac_x = FIXED_FRAC(floor_x);
+            const int frac_y = FIXED_FRAC(floor_y);
+            
+            // Convert to texture coordinates (0 to tex_width-1)
+            const int texture_x = FIXED_MUL(frac_x, tex_width);
+            const int texture_y = FIXED_MUL(frac_y, tex_height);
+            
+            dest_row[x] = tex_pixels[(texture_y & tex_height_mask) * tex_width + (texture_x & tex_width_mask)];
+            
+            floor_x += floor_step_x;
+            floor_y += floor_step_y;
+        }
+    }
+
+    SDL_UnlockSurface(thread_data->floor_surface);
     
     #undef FIXED_SHIFT
     #undef FIXED_SCALE
