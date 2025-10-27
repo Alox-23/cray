@@ -12,7 +12,7 @@
 #include "renderobject.h"
 
 #define RENDER_DISTANCE 300
-#define FLOOR_THREADS 6
+#define FLOOR_THREADS 4
 
 typedef struct{
   float m;
@@ -34,6 +34,10 @@ typedef struct{
   float player_dir_y;
   
   int width, height, start_y, end_y;
+
+  SDL_atomic_t should_exit;
+  SDL_atomic_t work_complete;
+  SDL_sem* work_semaphore;
 }FloorCastingThreadData;
 
 typedef struct{
@@ -43,8 +47,8 @@ typedef struct{
   int raycasting_scale;
 
   Uint32 *floor_cast_buffer;
-  FloorCastingThreadData floor_thread_data[FLOOR_THREADS];
-  SDL_Thread* sdl_floor_threads[FLOOR_THREADS];
+  FloorCastingThreadData floor_thread_data;
+  SDL_Thread* sdl_floor_thread;
 
   SDL_Texture* background_texture;
   SDL_Surface* floor_surface;

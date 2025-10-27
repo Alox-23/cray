@@ -64,25 +64,23 @@ Renderer* renderer_create(){
     return NULL;
   }
 
-  renderer->floor_cast_buffer = malloc(renderer->width * renderer->height * sizeof(Uint32)); 
- 
-  int floor_start = renderer->height / 2 + 1;
-  int floor_height = renderer->height - floor_start;
-  int rows_per_thread = floor_height / FLOOR_THREADS;
-  printf("Rows Per Thread: %d\n", rows_per_thread);
-  for (int i = 0; i < FLOOR_THREADS; i++){
-    renderer->floor_thread_data[i].floor_surface = renderer->floor_surface;
-    renderer->floor_thread_data[i].width = renderer->width;
-    renderer->floor_thread_data[i].height = renderer->height;
-    renderer->floor_thread_data[i].start_y = floor_start + i * rows_per_thread;
-    renderer->floor_thread_data[i].end_y = (i == FLOOR_THREADS - 1) ? renderer->height : renderer->floor_thread_data[i].start_y + rows_per_thread;
+  SDL_LockSurface(renderer->floor_surface);
 
-    renderer->floor_thread_data[i].buffer = renderer->floor_cast_buffer; 
-   
-    char thread_name[32];
-    snprintf(thread_name, sizeof(thread_name), "FloorThread%d", i);
-    renderer->sdl_floor_threads[i] = SDL_CreateThread(renderer_floorcast_fixed_thread, thread_name, &renderer->floor_thread_data[i]);
-  }
+  renderer->floor_thread_data.floor_surface = renderer->floor_surface;
+  renderer->floor_thread_data.width = renderer->width;
+  renderer->floor_thread_data.height = renderer->height;
+  renderer->floor_thread_data.start_y = renderer->height / 2 + 1;
+  renderer->floor_thread_data.end_y = renderer->height;
+  
+  renderer->floor_cast_buffer = malloc(renderer->width * renderer->height * sizeof(Uint32));
+  renderer->floor_thread_data.buffer = renderer->floor_cast_buffer; 
+
+  renderer->floor_thread_data.work_semaphore = SDL_CreateSemaphore(0);
+  SDL_AtomicSet(&renderer->floor_thread_data.should_exit, 0);
+  SDL_AtomicSet(&renderer->floor_thread_data.work_complete, 1);
+  
+  renderer->sdl_floor_thread = SDL_CreateThread(renderer_floorcast_fixed_thread, "FloorThread", &renderer->floor_thread_data);
+  
   return renderer;
 }
 
@@ -92,11 +90,13 @@ void renderer_destroy(Renderer *renderer){
   }
 
   SDL_DestroyTexture(renderer->background_texture);
+  SDL_UnlockSurface(renderer->floor_surface);
   SDL_FreeSurface(renderer->floor_surface);
   texturemanager_destroy(renderer->texture_manager);
   renderqueue_destroy(renderer->render_queue);
   SDL_DestroyRenderer(renderer->sdl_renderer);
   SDL_DestroyWindow(renderer->window);
+  free(renderer->floor_thread_data.buffer);
   free(renderer);
   renderer = NULL;
 }
@@ -461,17 +461,21 @@ void renderer_floorcast_fixed(Renderer* renderer, Map *map, Player *player) {
 }
 
 int renderer_floorcast_fixed_thread(void *data) {
-    FloorCastingThreadData* thread_data = (FloorCastingThreadData*)data;
+  FloorCastingThreadData* thread_data = (FloorCastingThreadData*)data;
 
-    SDL_LockSurface(thread_data->floor_surface);
+  // Fixed-point precision (16.16)
+  #define FIXED_SHIFT 16
+  #define FIXED_SCALE (1 << FIXED_SHIFT)
+  #define FLOAT_TO_FIXED(f) ((int)((f) * FIXED_SCALE))
+  #define FIXED_MUL(a, b) (((int64_t)(a) * (b)) >> FIXED_SHIFT)
+  #define FIXED_TO_INT(f) ((f) >> FIXED_SHIFT)
+  #define FIXED_FRAC(f) ((f) & (FIXED_SCALE - 1))
 
-    // Fixed-point precision (16.16)
-    #define FIXED_SHIFT 16
-    #define FIXED_SCALE (1 << FIXED_SHIFT)
-    #define FLOAT_TO_FIXED(f) ((int)((f) * FIXED_SCALE))
-    #define FIXED_MUL(a, b) (((int64_t)(a) * (b)) >> FIXED_SHIFT)
-    #define FIXED_TO_INT(f) ((f) >> FIXED_SHIFT)
-    #define FIXED_FRAC(f) ((f) & (FIXED_SCALE - 1))
+  while (!SDL_AtomicGet(&thread_data->should_exit)){
+    
+    SDL_SemWait(thread_data->work_semaphore);
+
+    if (SDL_AtomicGet(&thread_data->should_exit)) break;
 
     // Precompute floating-point values first for accuracy
     const float ray_dir_x0 = thread_data->player_dir_x - thread_data->player_plane_x;
@@ -501,46 +505,45 @@ int renderer_floorcast_fixed_thread(void *data) {
     const int tex_height_mask = tex_height - 1;
 
     for (int y = thread_data->start_y; y < thread_data->end_y; y++) {
-        const int p = y - thread_data->height / 2;
-        
-        // FIXED: Use proper fixed-point division (or avoid it)
-        // Since p is small, we can use reciprocal multiplication
-        const int row_distance = FIXED_MUL(pos_z_scaled, FIXED_SCALE / p);
-        
-        // FIXED: Correct fixed-point multiplication chain
-        const int floor_step_x = FIXED_MUL(FIXED_MUL(row_distance, fixed_ray_diff_x), fixed_inv_width);
-        const int floor_step_y = FIXED_MUL(FIXED_MUL(row_distance, fixed_ray_diff_y), fixed_inv_width);
-        
-        // FIXED: Correct position calculation
-        int floor_x = pos_x + FIXED_MUL(row_distance, fixed_ray_dir_x0);
-        int floor_y = pos_y + FIXED_MUL(row_distance, fixed_ray_dir_y0);
-        
-        Uint32* dest_row = thread_data->buffer + y * thread_data->width;
+      const int p = y - thread_data->height / 2;
+      
+      // FIXED: Use proper fixed-point division (or avoid it)
+      // Since p is small, we can use reciprocal multiplication
+      const int row_distance = FIXED_MUL(pos_z_scaled, FIXED_SCALE / p);
+      
+      // FIXED: Correct fixed-point multiplication chain
+      const int floor_step_x = FIXED_MUL(FIXED_MUL(row_distance, fixed_ray_diff_x), fixed_inv_width);
+      const int floor_step_y = FIXED_MUL(FIXED_MUL(row_distance, fixed_ray_diff_y), fixed_inv_width);
+      
+      // FIXED: Correct position calculation
+      int floor_x = pos_x + FIXED_MUL(row_distance, fixed_ray_dir_x0);
+      int floor_y = pos_y + FIXED_MUL(row_distance, fixed_ray_dir_y0);
+      
+      Uint32* dest_row = thread_data->buffer + y * thread_data->width;
 
-        for (int x = 0; x < thread_data->width; x++) {
-            // Extract fractional parts
-            const int frac_x = FIXED_FRAC(floor_x);
-            const int frac_y = FIXED_FRAC(floor_y);
-            
-            // Convert to texture coordinates (0 to tex_width-1)
-            const int texture_x = FIXED_MUL(frac_x, tex_width);
-            const int texture_y = FIXED_MUL(frac_y, tex_height);
-            
-            dest_row[x] = tex_pixels[(texture_y & tex_height_mask) * tex_width + (texture_x & tex_width_mask)];
-            
-            floor_x += floor_step_x;
-            floor_y += floor_step_y;
-        }
+      for (int x = 0; x < thread_data->width; x++) {
+        // Extract fractional parts
+        const int frac_x = FIXED_FRAC(floor_x);
+        const int frac_y = FIXED_FRAC(floor_y);
+        
+        // Convert to texture coordinates (0 to tex_width-1)
+        const int texture_x = FIXED_MUL(frac_x, tex_width);
+        const int texture_y = FIXED_MUL(frac_y, tex_height);
+        
+        dest_row[x] = tex_pixels[(texture_y & tex_height_mask) * tex_width + (texture_x & tex_width_mask)];
+        
+        floor_x += floor_step_x;
+        floor_y += floor_step_y;
+      }
     }
-
-    SDL_UnlockSurface(thread_data->floor_surface);
-    
-    #undef FIXED_SHIFT
-    #undef FIXED_SCALE
-    #undef FLOAT_TO_FIXED
-    #undef FIXED_MUL
-    #undef FIXED_TO_INT
-    #undef FIXED_FRAC
+  }
+ 
+  #undef FIXED_SHIFT
+  #undef FIXED_SCALE
+  #undef FLOAT_TO_FIXED
+  #undef FIXED_MUL
+  #undef FIXED_TO_INT
+  #undef FIXED_FRAC
 }
 
 void renderer_sync_floorcast_thread_data(Renderer* renderer, Map* map, Player *player){
@@ -549,17 +552,18 @@ void renderer_sync_floorcast_thread_data(Renderer* renderer, Map* map, Player *p
     return;
   }
 
-  for (int i = 0; i < FLOOR_THREADS; i++){
-    renderer->floor_thread_data[i].player_pos_z = player->pos_z;
-    renderer->floor_thread_data[i].player_pos_y = player->pos.y;
-    renderer->floor_thread_data[i].player_pos_x = player->pos.x;
+  renderer->floor_thread_data.player_pos_z = player->pos_z;
+  renderer->floor_thread_data.player_pos_y = player->pos.y;
+  renderer->floor_thread_data.player_pos_x = player->pos.x;
     
-    renderer->floor_thread_data[i].player_plane_x = player->plane.x;
-    renderer->floor_thread_data[i].player_plane_y = player->plane.y;
+  renderer->floor_thread_data.player_plane_x = player->plane.x;
+  renderer->floor_thread_data.player_plane_y = player->plane.y;
     
-    renderer->floor_thread_data[i].player_dir_x = player->dir.x;
-    renderer->floor_thread_data[i].player_dir_y = player->dir.y;
-  }
+  renderer->floor_thread_data.player_dir_x = player->dir.x;
+  renderer->floor_thread_data.player_dir_y = player->dir.y;
+
+  SDL_AtomicSet(&renderer->floor_thread_data.work_complete, 0);
+  SDL_SemPost(renderer->floor_thread_data.work_semaphore);
 }
 
 void renderer_floorcast_sse(Renderer* renderer, Map *map, Player *player) {
