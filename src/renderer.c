@@ -66,21 +66,28 @@ Renderer* renderer_create(){
 
   SDL_LockSurface(renderer->floor_surface);
 
-  renderer->floor_thread_data.floor_surface = renderer->floor_surface;
-  renderer->floor_thread_data.width = renderer->width;
-  renderer->floor_thread_data.height = renderer->height;
-  renderer->floor_thread_data.start_y = renderer->height / 2 + 1;
-  renderer->floor_thread_data.end_y = renderer->height;
-  
-  renderer->floor_cast_buffer = malloc(renderer->width * renderer->height * sizeof(Uint32));
-  renderer->floor_thread_data.buffer = renderer->floor_cast_buffer; 
+  int floor_start = renderer->height / 2 + 1;
+  int floor_height = renderer->height - floor_start;
+  int rows_per_thread = floor_height / FLOOR_THREADS;
+  printf("Rows of pixels per floor_thread: %d\n", rows_per_thread);
+  for (int i = 0; i < FLOOR_THREADS; i++){
+    renderer->floor_thread_data[i].floor_surface = renderer->floor_surface;
+    renderer->floor_thread_data[i].width = renderer->width;
+    renderer->floor_thread_data[i].height = renderer->height;
+    renderer->floor_thread_data[i].start_y = floor_start + i * rows_per_thread;
+    renderer->floor_thread_data[i].end_y = (i == FLOOR_THREADS - 1) ? renderer->height : renderer->floor_thread_data[i].start_y + rows_per_thread;
+    
+    renderer->floor_cast_buffer = malloc(renderer->width * renderer->height * sizeof(Uint32));
+    renderer->floor_thread_data[i].buffer = renderer->floor_cast_buffer; 
 
-  renderer->floor_thread_data.work_semaphore = SDL_CreateSemaphore(0);
-  SDL_AtomicSet(&renderer->floor_thread_data.should_exit, 0);
-  SDL_AtomicSet(&renderer->floor_thread_data.work_complete, 1);
-  
-  renderer->sdl_floor_thread = SDL_CreateThread(renderer_floorcast_fixed_thread, "FloorThread", &renderer->floor_thread_data);
-  
+    renderer->floor_thread_data[i].work_semaphore = SDL_CreateSemaphore(0);
+    SDL_AtomicSet(&renderer->floor_thread_data[i].should_exit, 0);
+    SDL_AtomicSet(&renderer->floor_thread_data[i].work_complete, 1);
+ 
+    char thread_name[32];
+    snprintf(thread_name, sizeof(thread_name), "FloorThread%d", i);
+    renderer->sdl_floor_threads[i] = SDL_CreateThread(renderer_floorcast_fixed_thread, thread_name, &renderer->floor_thread_data);
+  }
   return renderer;
 }
 
@@ -96,7 +103,7 @@ void renderer_destroy(Renderer *renderer){
   renderqueue_destroy(renderer->render_queue);
   SDL_DestroyRenderer(renderer->sdl_renderer);
   SDL_DestroyWindow(renderer->window);
-  free(renderer->floor_thread_data.buffer);
+  free(renderer->floor_cast_buffer);
   free(renderer);
   renderer = NULL;
 }
@@ -552,18 +559,20 @@ void renderer_sync_floorcast_thread_data(Renderer* renderer, Map* map, Player *p
     return;
   }
 
-  renderer->floor_thread_data.player_pos_z = player->pos_z;
-  renderer->floor_thread_data.player_pos_y = player->pos.y;
-  renderer->floor_thread_data.player_pos_x = player->pos.x;
+  for (int i = 0; i < FLOOR_THREADS; i++){
+    renderer->floor_thread_data[i].player_pos_z = player->pos_z;
+    renderer->floor_thread_data[i].player_pos_y = player->pos.y;
+    renderer->floor_thread_data[i].player_pos_x = player->pos.x;
+      
+    renderer->floor_thread_data[i].player_plane_x = player->plane.x;
+    renderer->floor_thread_data[i].player_plane_y = player->plane.y;
+      
+    renderer->floor_thread_data[i].player_dir_x = player->dir.x;
+    renderer->floor_thread_data[i].player_dir_y = player->dir.y;
     
-  renderer->floor_thread_data.player_plane_x = player->plane.x;
-  renderer->floor_thread_data.player_plane_y = player->plane.y;
-    
-  renderer->floor_thread_data.player_dir_x = player->dir.x;
-  renderer->floor_thread_data.player_dir_y = player->dir.y;
-
-  SDL_AtomicSet(&renderer->floor_thread_data.work_complete, 0);
-  SDL_SemPost(renderer->floor_thread_data.work_semaphore);
+    SDL_AtomicSet(&renderer->floor_thread_data[i].work_complete, 0);
+    SDL_SemPost(renderer->floor_thread_data[i].work_semaphore);
+  }
 }
 
 void renderer_floorcast_sse(Renderer* renderer, Map *map, Player *player) {
