@@ -25,7 +25,7 @@ int main (){
     input_poll(game);
     game_update(game);
     renderer_render(game->renderer, game->player, game->map);
-    
+
     b=SDL_GetPerformanceCounter();
     static Uint64 freq = 0;
     freq = SDL_GetPerformanceFrequency();
