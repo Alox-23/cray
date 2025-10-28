@@ -66,6 +66,8 @@ Renderer* renderer_create(){
 
   SDL_LockSurface(renderer->floor_surface);
 
+  renderer->floor_cast_buffer = malloc(renderer->width * renderer->height * sizeof(Uint32));
+  
   int floor_start = renderer->height / 2 + 1;
   int floor_height = renderer->height - floor_start;
   int rows_per_thread = floor_height / FLOOR_THREADS;
@@ -76,8 +78,7 @@ Renderer* renderer_create(){
     renderer->floor_thread_data[i].height = renderer->height;
     renderer->floor_thread_data[i].start_y = floor_start + i * rows_per_thread;
     renderer->floor_thread_data[i].end_y = (i == FLOOR_THREADS - 1) ? renderer->height : renderer->floor_thread_data[i].start_y + rows_per_thread;
-    
-    renderer->floor_cast_buffer = malloc(renderer->width * renderer->height * sizeof(Uint32));
+
     renderer->floor_thread_data[i].buffer = renderer->floor_cast_buffer; 
 
     renderer->floor_thread_data[i].work_semaphore = SDL_CreateSemaphore(0);
@@ -85,7 +86,9 @@ Renderer* renderer_create(){
     SDL_AtomicSet(&renderer->floor_thread_data[i].work_complete, 1);
  
     char thread_name[32];
+
     snprintf(thread_name, sizeof(thread_name), "FloorThread%d", i);
+    snprintf(renderer->floor_thread_data[i].id, sizeof(renderer->floor_thread_data[i].id), "%d", i);
     renderer->sdl_floor_threads[i] = SDL_CreateThread(renderer_floorcast_fixed_thread, thread_name, &renderer->floor_thread_data);
   }
   return renderer;
@@ -112,9 +115,9 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   SDL_RenderClear(renderer->sdl_renderer);
 
   renderer_sync_floorcast_thread_data(renderer, map, player);
-  renderer_raycast(renderer, map, player);
+  renderer_raycast(renderer, map, player); 
   renderer_render_floorcast_buffer(renderer);
-
+ 
   SDL_Rect rect;
   rect.x = 0;
   rect.y = 0;
@@ -478,10 +481,11 @@ int renderer_floorcast_fixed_thread(void *data) {
   #define FIXED_TO_INT(f) ((f) >> FIXED_SHIFT)
   #define FIXED_FRAC(f) ((f) & (FIXED_SCALE - 1))
 
+  
   while (!SDL_AtomicGet(&thread_data->should_exit)){
     
     SDL_SemWait(thread_data->work_semaphore);
-
+    
     if (SDL_AtomicGet(&thread_data->should_exit)) break;
 
     // Precompute floating-point values first for accuracy
@@ -527,7 +531,7 @@ int renderer_floorcast_fixed_thread(void *data) {
       int floor_y = pos_y + FIXED_MUL(row_distance, fixed_ray_dir_y0);
       
       Uint32* dest_row = thread_data->buffer + y * thread_data->width;
-
+      
       for (int x = 0; x < thread_data->width; x++) {
         // Extract fractional parts
         const int frac_x = FIXED_FRAC(floor_x);
@@ -538,13 +542,20 @@ int renderer_floorcast_fixed_thread(void *data) {
         const int texture_y = FIXED_MUL(frac_y, tex_height);
         
         dest_row[x] = tex_pixels[(texture_y & tex_height_mask) * tex_width + (texture_x & tex_width_mask)];
+       
+        //printf("y: %d\n", y);
+        if (y == 222 && x == 20) printf("DEBUG: %d, %d: %d\n", x, y, dest_row[x]);        
         
         floor_x += floor_step_x;
         floor_y += floor_step_y;
       }
     }
+   
+    Uint32* dest_row = thread_data->buffer + 222 * thread_data->width;
+    
+    printf("DEBUG: %d\n", dest_row[20]);
   }
- 
+
   #undef FIXED_SHIFT
   #undef FIXED_SCALE
   #undef FLOAT_TO_FIXED
