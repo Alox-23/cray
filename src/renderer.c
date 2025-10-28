@@ -12,7 +12,7 @@ Renderer* renderer_create(){
   
   renderer->scale_2d = 8;
   renderer->width = 800;
-  renderer->height = 400;
+  renderer->height = 500;
   
   renderer->window = SDL_CreateWindow("SDL2 hello world", 100, 100, renderer->width, renderer->height, SDL_WINDOW_SHOWN);
   if(!renderer->window){
@@ -68,17 +68,20 @@ Renderer* renderer_create(){
 
   renderer->floor_cast_buffer = malloc(renderer->width * renderer->height * sizeof(Uint32));
   
-  int floor_start = renderer->height / 2 + 1;
+  int floor_start = renderer->height / 2;
   int floor_height = renderer->height - floor_start;
   int rows_per_thread = floor_height / FLOOR_THREADS;
-  printf("Rows of pixels per floor_thread: %d\n", rows_per_thread);
+  
   for (int i = 0; i < FLOOR_THREADS; i++){
     renderer->floor_thread_data[i].floor_surface = renderer->floor_surface;
     renderer->floor_thread_data[i].width = renderer->width;
     renderer->floor_thread_data[i].height = renderer->height;
     renderer->floor_thread_data[i].start_y = floor_start + i * rows_per_thread;
-    renderer->floor_thread_data[i].end_y = (i == FLOOR_THREADS - 1) ? renderer->height : renderer->floor_thread_data[i].start_y + rows_per_thread;
+    renderer->floor_thread_data[i].end_y = floor_start + (i+1) * rows_per_thread;
+    renderer->floor_thread_data[i].id = i;
 
+    printf("Thread%d: %d-%d\n", i, renderer->floor_thread_data[i].start_y, renderer->floor_thread_data[i].end_y);
+  
     renderer->floor_thread_data[i].buffer = renderer->floor_cast_buffer; 
 
     renderer->floor_thread_data[i].work_semaphore = SDL_CreateSemaphore(0);
@@ -86,11 +89,11 @@ Renderer* renderer_create(){
     SDL_AtomicSet(&renderer->floor_thread_data[i].work_complete, 1);
  
     char thread_name[32];
-
     snprintf(thread_name, sizeof(thread_name), "FloorThread%d", i);
-    snprintf(renderer->floor_thread_data[i].id, sizeof(renderer->floor_thread_data[i].id), "%d", i);
-    renderer->sdl_floor_threads[i] = SDL_CreateThread(renderer_floorcast_fixed_thread, thread_name, &renderer->floor_thread_data);
+    
+    renderer->sdl_floor_threads[i] = SDL_CreateThread(renderer_floorcast_fixed_thread, thread_name, &renderer->floor_thread_data[i]);
   }
+
   return renderer;
 }
 
@@ -98,7 +101,7 @@ void renderer_destroy(Renderer *renderer){
   if(!renderer){
     return;
   }
-
+  
   SDL_DestroyTexture(renderer->background_texture);
   SDL_UnlockSurface(renderer->floor_surface);
   SDL_FreeSurface(renderer->floor_surface);
@@ -481,6 +484,7 @@ int renderer_floorcast_fixed_thread(void *data) {
   #define FIXED_TO_INT(f) ((f) >> FIXED_SHIFT)
   #define FIXED_FRAC(f) ((f) & (FIXED_SCALE - 1))
 
+  printf("id: %d\n", thread_data->id);
   
   while (!SDL_AtomicGet(&thread_data->should_exit)){
     
@@ -516,7 +520,7 @@ int renderer_floorcast_fixed_thread(void *data) {
     const int tex_height_mask = tex_height - 1;
 
     for (int y = thread_data->start_y; y < thread_data->end_y; y++) {
-      const int p = y - thread_data->height / 2;
+      const int p = y - thread_data->height / 2 + 1;
       
       // FIXED: Use proper fixed-point division (or avoid it)
       // Since p is small, we can use reciprocal multiplication
@@ -542,18 +546,13 @@ int renderer_floorcast_fixed_thread(void *data) {
         const int texture_y = FIXED_MUL(frac_y, tex_height);
         
         dest_row[x] = tex_pixels[(texture_y & tex_height_mask) * tex_width + (texture_x & tex_width_mask)];
-       
-        //printf("y: %d\n", y);
-        if (y == 222 && x == 20) printf("DEBUG: %d, %d: %d\n", x, y, dest_row[x]);        
-        
+
+        //printf("DEBUG: (%d, %d): %d\n", x, y, thread_data->buffer[y * thread_data->width + x]);
+
         floor_x += floor_step_x;
         floor_y += floor_step_y;
       }
     }
-   
-    Uint32* dest_row = thread_data->buffer + 222 * thread_data->width;
-    
-    printf("DEBUG: %d\n", dest_row[20]);
   }
 
   #undef FIXED_SHIFT
