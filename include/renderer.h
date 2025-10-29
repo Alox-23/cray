@@ -12,7 +12,7 @@
 #include "renderobject.h"
 
 #define RENDER_DISTANCE 300
-#define FLOOR_THREADS 1
+#define FLOOR_THREADS 2
 
 typedef struct{
   float m;
@@ -69,6 +69,7 @@ void renderer_render_map_2d(Renderer *renderer, Map *map);
 void renderer_raycast(Renderer* renderer, Map *map, Player *player);
 void renderer_floorcast_fixed(Renderer* renderer, Map *map, Player *player);
 void renderer_render_floorcast_buffer(Renderer* renderer);
+int renderer_create_floor_thread_data(Renderer* renderer);
 int renderer_floorcast_fixed_thread(void* data);
 void renderer_sync_floorcast_thread_data(Renderer* renderer, Map* map, Player* player);
 void renderer_floorcast_sse(Renderer* renderer, Map *map, Player *player);

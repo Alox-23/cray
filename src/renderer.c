@@ -51,47 +51,9 @@ Renderer* renderer_create(){
   texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/default.png");
   */ 
 
-  renderer->background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height);
-  if (!renderer->background_texture){
-    printf("Failed to create background_texture SDL_Texture: %s\n", SDL_GetError());
+  if (!renderer_create_floor_thread_data(renderer)){
+    printf("Failed to create floor thread data\n");
     return NULL;
-  }
-
-  SDL_Surface* csurface = IMG_Load("assets/x256/textures/Metal/Metal_07-256x256.png");
-  renderer->floor_surface = SDL_ConvertSurfaceFormat(csurface, SDL_PIXELFORMAT_RGBA32, 0);
-  if (!renderer->floor_surface){
-    printf("Failed to load floor SDL_Surface: %s\n", SDL_GetError());
-    return NULL;
-  }
-
-  SDL_LockSurface(renderer->floor_surface);
-
-  renderer->floor_cast_buffer = malloc(renderer->width * renderer->height * sizeof(Uint32));
-  
-  int floor_start = renderer->height / 2;
-  int floor_height = renderer->height - floor_start;
-  int rows_per_thread = floor_height / FLOOR_THREADS;
-  
-  for (int i = 0; i < FLOOR_THREADS; i++){
-    renderer->floor_thread_data[i].floor_surface = renderer->floor_surface;
-    renderer->floor_thread_data[i].width = renderer->width;
-    renderer->floor_thread_data[i].height = renderer->height;
-    renderer->floor_thread_data[i].start_y = floor_start + i * rows_per_thread;
-    renderer->floor_thread_data[i].end_y = floor_start + (i+1) * rows_per_thread;
-    renderer->floor_thread_data[i].id = i;
-
-    printf("Thread%d: %d-%d\n", i, renderer->floor_thread_data[i].start_y, renderer->floor_thread_data[i].end_y);
-  
-    renderer->floor_thread_data[i].buffer = renderer->floor_cast_buffer; 
-
-    renderer->floor_thread_data[i].work_semaphore = SDL_CreateSemaphore(0);
-    SDL_AtomicSet(&renderer->floor_thread_data[i].should_exit, 0);
-    SDL_AtomicSet(&renderer->floor_thread_data[i].work_complete, 1);
- 
-    char thread_name[32];
-    snprintf(thread_name, sizeof(thread_name), "FloorThread%d", i);
-    
-    renderer->sdl_floor_threads[i] = SDL_CreateThread(renderer_floorcast_fixed_thread, thread_name, &renderer->floor_thread_data[i]);
   }
 
   return renderer;
@@ -136,6 +98,56 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   //renderer_render_player_2d(renderer, player);
 
   SDL_RenderPresent(renderer->sdl_renderer);
+}
+
+int renderer_create_floor_thread_data(Renderer* renderer){
+  renderer->background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height);
+  if (!renderer->background_texture){
+    printf("Failed to create background_texture SDL_Texture: %s\n", SDL_GetError());
+    return 0;
+  }
+
+  SDL_Surface* csurface = IMG_Load("assets/x256/textures/Metal/Metal_07-256x256.png");
+  renderer->floor_surface = SDL_ConvertSurfaceFormat(csurface, SDL_PIXELFORMAT_RGBA32, 0);
+  if (!renderer->floor_surface){
+    printf("Failed to load floor SDL_Surface: %s\n", SDL_GetError());
+    return 0;
+  }
+
+  if (SDL_LockSurface(renderer->floor_surface)){
+    printf("Failed to lock renderer->floor_surface: %s\n", SDL_GetError());
+    return 0;
+  }
+
+  renderer->floor_cast_buffer = malloc(renderer->width * renderer->height * sizeof(Uint32));
+  
+  int floor_start = renderer->height / 2;
+  int floor_height = renderer->height - floor_start;
+  int rows_per_thread = floor_height / FLOOR_THREADS;
+  
+  for (int i = 0; i < FLOOR_THREADS; i++){
+    renderer->floor_thread_data[i].floor_surface = renderer->floor_surface;
+    renderer->floor_thread_data[i].width = renderer->width;
+    renderer->floor_thread_data[i].height = renderer->height;
+    renderer->floor_thread_data[i].start_y = floor_start + i * rows_per_thread;
+    renderer->floor_thread_data[i].end_y = floor_start + (i+1) * rows_per_thread;
+    renderer->floor_thread_data[i].id = i;
+
+    printf("FloorThread with id:%d works on rows %d-%d!\n", i, renderer->floor_thread_data[i].start_y, renderer->floor_thread_data[i].end_y);
+  
+    renderer->floor_thread_data[i].buffer = renderer->floor_cast_buffer; 
+
+    renderer->floor_thread_data[i].work_semaphore = SDL_CreateSemaphore(0);
+    SDL_AtomicSet(&renderer->floor_thread_data[i].should_exit, 0);
+    SDL_AtomicSet(&renderer->floor_thread_data[i].work_complete, 1);
+ 
+    char thread_name[32];
+    snprintf(thread_name, sizeof(thread_name), "FloorThread%d", i);
+    
+    renderer->sdl_floor_threads[i] = SDL_CreateThread(renderer_floorcast_fixed_thread, thread_name, &renderer->floor_thread_data[i]);
+  }
+  
+  return 1;
 }
 
 void renderer_render_floorcast_buffer(Renderer* renderer){
@@ -484,7 +496,7 @@ int renderer_floorcast_fixed_thread(void *data) {
   #define FIXED_TO_INT(f) ((f) >> FIXED_SHIFT)
   #define FIXED_FRAC(f) ((f) & (FIXED_SCALE - 1))
 
-  printf("id: %d\n", thread_data->id);
+  printf("FloorThread with id:%d, has Launched!\n", thread_data->id);
   
   while (!SDL_AtomicGet(&thread_data->should_exit)){
     
