@@ -63,7 +63,11 @@ void renderer_destroy(Renderer *renderer){
   if(!renderer){
     return;
   }
-  
+ 
+  for (int i = 0; i < FLOOR_THREADS; i++){
+    SDL_DestroySemaphore(renderer->floor_thread_data[i].work_semaphore);
+  }
+
   SDL_DestroyTexture(renderer->background_texture);
   SDL_UnlockSurface(renderer->floor_surface);
   SDL_FreeSurface(renderer->floor_surface);
@@ -71,7 +75,6 @@ void renderer_destroy(Renderer *renderer){
   renderqueue_destroy(renderer->render_queue);
   SDL_DestroyRenderer(renderer->sdl_renderer);
   SDL_DestroyWindow(renderer->window);
-  free(renderer->floor_cast_buffer);
   free(renderer);
   renderer = NULL;
 }
@@ -79,10 +82,22 @@ void renderer_destroy(Renderer *renderer){
 void renderer_render(Renderer *renderer, Player *player, Map *map){
   SDL_RenderClear(renderer->sdl_renderer);
 
+  Uint64 start = SDL_GetPerformanceCounter();
   renderer_sync_floorcast_thread_data(renderer, map, player);
-  renderer_raycast(renderer, map, player); 
-  renderer_render_floorcast_buffer(renderer);
+  Uint64 end = SDL_GetPerformanceCounter();
+  //renderer_raycast(renderer, map, player); 
  
+  float elapsed_ms = (end-start) * 1000.0f / SDL_GetPerformanceCounter();
+  printf("Time for sync: %fms\n", elapsed_ms);
+  
+  start = SDL_GetPerformanceCounter();
+  renderer_render_floorcast_buffer(renderer);
+
+  end = SDL_GetPerformanceCounter();
+
+  elapsed_ms = (end-start) * 1000.0f / SDL_GetPerformanceCounter();
+  printf("Time for rend: %fms\n", elapsed_ms);
+
   SDL_Rect rect;
   rect.x = 0;
   rect.y = 0;
@@ -92,7 +107,7 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   SDL_SetRenderDrawColor(renderer->sdl_renderer, 150, 150, 220, 255);
   SDL_RenderFillRect(renderer->sdl_renderer, &rect);
 
-  renderer_flush_queue(renderer);
+  //renderer_flush_queue(renderer);
  
   //renderer_render_map_2d(renderer, map);
   //renderer_render_player_2d(renderer, player);
@@ -119,8 +134,6 @@ int renderer_create_floor_thread_data(Renderer* renderer){
     return 0;
   }
 
-  renderer->floor_cast_buffer = malloc(renderer->width * renderer->height * sizeof(Uint32));
-  
   int floor_start = renderer->height / 2;
   int floor_height = renderer->height - floor_start;
   int rows_per_thread = floor_height / FLOOR_THREADS;
@@ -135,7 +148,7 @@ int renderer_create_floor_thread_data(Renderer* renderer){
 
     printf("FloorThread with id:%d works on rows %d-%d!\n", i, renderer->floor_thread_data[i].start_y, renderer->floor_thread_data[i].end_y);
   
-    renderer->floor_thread_data[i].buffer = renderer->floor_cast_buffer; 
+    renderer->floor_thread_data[i].texture_buffer = renderer->background_texture; 
 
     renderer->floor_thread_data[i].work_semaphore = SDL_CreateSemaphore(0);
     SDL_AtomicSet(&renderer->floor_thread_data[i].should_exit, 0);
@@ -155,13 +168,13 @@ void renderer_render_floorcast_buffer(Renderer* renderer){
     printf("Incorrect renderer pointer to render_render_florcast_buffer\n");
   }
 
-  Uint32* pixels;
-  int pitch;
-  if (SDL_LockTexture(renderer->background_texture, NULL, (void**)&pixels, &pitch) == 0){
-    memcpy(pixels, renderer->floor_cast_buffer, renderer->width * renderer->height * sizeof(Uint32));
-    SDL_UnlockTexture(renderer->background_texture);
+  for (int i = 0; i < FLOOR_THREADS; i++) {
+    while (!SDL_AtomicGet(&renderer->floor_thread_data[i].work_complete)) {
+      SDL_Delay(0);
+    }
   }
 
+  SDL_UnlockTexture(renderer->background_texture);
   SDL_RenderCopy(renderer->sdl_renderer, renderer->background_texture, NULL, NULL);
 }
 
@@ -504,6 +517,16 @@ int renderer_floorcast_fixed_thread(void *data) {
     
     if (SDL_AtomicGet(&thread_data->should_exit)) break;
 
+    Uint32* texture_pixels;
+    int texture_pitch;
+    if (SDL_LockTexture(thread_data->texture_buffer, NULL, (void**)&texture_pixels, &texture_pitch) != 0){
+      printf("Thread: %d: Failed to lock texture, skipping frame\n", thread_data->id);
+      SDL_AtomicSet(&thread_data->work_complete, 1);
+      continue;
+    }
+
+    const int pixels_per_row = texture_pitch / sizeof(Uint32);
+    
     // Precompute floating-point values first for accuracy
     const float ray_dir_x0 = thread_data->player_dir_x - thread_data->player_plane_x;
     const float ray_dir_y0 = thread_data->player_dir_y - thread_data->player_plane_y;
@@ -546,7 +569,7 @@ int renderer_floorcast_fixed_thread(void *data) {
       int floor_x = pos_x + FIXED_MUL(row_distance, fixed_ray_dir_x0);
       int floor_y = pos_y + FIXED_MUL(row_distance, fixed_ray_dir_y0);
       
-      Uint32* dest_row = thread_data->buffer + y * thread_data->width;
+      Uint32* dest_row = texture_pixels + y * pixels_per_row;
       
       for (int x = 0; x < thread_data->width; x++) {
         // Extract fractional parts
@@ -559,12 +582,11 @@ int renderer_floorcast_fixed_thread(void *data) {
         
         dest_row[x] = tex_pixels[(texture_y & tex_height_mask) * tex_width + (texture_x & tex_width_mask)];
 
-        //printf("DEBUG: (%d, %d): %d\n", x, y, thread_data->buffer[y * thread_data->width + x]);
-
         floor_x += floor_step_x;
         floor_y += floor_step_y;
       }
     }
+    SDL_AtomicSet(&thread_data->work_complete, 1);
   }
 
   #undef FIXED_SHIFT
