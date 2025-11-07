@@ -98,8 +98,8 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   double t1 = (double)(b1-a1) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
   double t2 = (double)(b2-a2) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
 
-  printf("Time for SYNC: %.3fms\n", t1);
-  printf("Time for REND. %.3fms\n", t2);
+  //printf("Time for SYNC: %.3fms\n", t1);
+  //printf("Time for REND. %.3fms\n", t2);
 
   SDL_Rect rect;
   rect.x = 0;
@@ -120,7 +120,7 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
 }
 
 int renderer_create_floor_thread_data(Renderer* renderer){
-  renderer->background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height/2);
+  renderer->background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height / 2);
   if (!renderer->background_texture){
     printf("Failed to create background_texture SDL_Texture: %s\n", SDL_GetError());
     return 0;
@@ -138,8 +138,8 @@ int renderer_create_floor_thread_data(Renderer* renderer){
     return 0;
   }
 
-  int floor_start = renderer->height / 2;
-  int floor_height = renderer->height - floor_start;
+  int floor_start = 0;
+  int floor_height = renderer->height/2;
   int rows_per_thread = floor_height / FLOOR_THREADS;
   
   for (int i = 0; i < FLOOR_THREADS; i++){
@@ -576,8 +576,10 @@ int renderer_floorcast_fixed_thread(void *data) {
     const int tex_height_mask = tex_height - 1;
 
     for (int y = thread_data->start_y; y < thread_data->end_y; y++) {
-      const int p = y - thread_data->height / 2 + 1;
-      
+      const int p = y - thread_data->height / 2;
+     
+      if (p == 0) continue;
+
       // FIXED: Use proper fixed-point division (or avoid it)
       // Since p is small, we can use reciprocal multiplication
       const int row_distance = FIXED_MUL(pos_z_scaled, FIXED_SCALE / p);
