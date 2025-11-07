@@ -120,7 +120,7 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
 }
 
 int renderer_create_floor_thread_data(Renderer* renderer){
-  renderer->background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height);
+  renderer->background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height/2);
   if (!renderer->background_texture){
     printf("Failed to create background_texture SDL_Texture: %s\n", SDL_GetError());
     return 0;
@@ -145,7 +145,7 @@ int renderer_create_floor_thread_data(Renderer* renderer){
   for (int i = 0; i < FLOOR_THREADS; i++){
     renderer->floor_thread_data[i].floor_surface = renderer->floor_surface;
     renderer->floor_thread_data[i].width = renderer->width;
-    renderer->floor_thread_data[i].height = renderer->height;
+    renderer->floor_thread_data[i].height = renderer->height / 2;
     renderer->floor_thread_data[i].start_y = floor_start + i * rows_per_thread;
     renderer->floor_thread_data[i].end_y = floor_start + (i+1) * rows_per_thread;
     renderer->floor_thread_data[i].id = i;
