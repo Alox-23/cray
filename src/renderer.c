@@ -63,11 +63,17 @@ void renderer_destroy(Renderer *renderer){
   if(!renderer){
     return;
   }
- 
+  
+  for (int i = 0; i < FLOOR_THREADS; i++) {
+    while (!SDL_AtomicGet(&renderer->floor_thread_data[i].work_complete)) {
+      SDL_Delay(0);
+    }
+  }
+  
   for (int i = 0; i < FLOOR_THREADS; i++){
     SDL_DestroySemaphore(renderer->floor_thread_data[i].work_semaphore);
   }
-
+  
   SDL_DestroyTexture(renderer->background_texture);
   SDL_UnlockSurface(renderer->floor_surface);
   SDL_FreeSurface(renderer->floor_surface);
@@ -82,21 +88,18 @@ void renderer_destroy(Renderer *renderer){
 void renderer_render(Renderer *renderer, Player *player, Map *map){
   SDL_RenderClear(renderer->sdl_renderer);
 
-  Uint64 start = SDL_GetPerformanceCounter();
+  Uint64 a1 = SDL_GetPerformanceCounter();
   renderer_sync_floorcast_thread_data(renderer, map, player);
-  Uint64 end = SDL_GetPerformanceCounter();
-  //renderer_raycast(renderer, map, player); 
- 
-  float elapsed_ms = (end-start) * 1000.0f / SDL_GetPerformanceCounter();
-  printf("Time for sync: %fms\n", elapsed_ms);
-  
-  start = SDL_GetPerformanceCounter();
+  Uint64 b1 = SDL_GetPerformanceCounter();
+  Uint64 a2 = SDL_GetPerformanceCounter();
   renderer_render_floorcast_buffer(renderer);
+  Uint64 b2 = SDL_GetPerformanceCounter();
+ 
+  double t1 = (double)(b1-a1) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
+  double t2 = (double)(b2-a2) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
 
-  end = SDL_GetPerformanceCounter();
-
-  elapsed_ms = (end-start) * 1000.0f / SDL_GetPerformanceCounter();
-  printf("Time for rend: %fms\n", elapsed_ms);
+  printf("Time for SYNC: %.3fms\n", t1);
+  printf("Time for REND. %.3fms\n", t2);
 
   SDL_Rect rect;
   rect.x = 0;
@@ -113,6 +116,7 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   //renderer_render_player_2d(renderer, player);
 
   SDL_RenderPresent(renderer->sdl_renderer);
+
 }
 
 int renderer_create_floor_thread_data(Renderer* renderer){
@@ -163,17 +167,34 @@ int renderer_create_floor_thread_data(Renderer* renderer){
   return 1;
 }
 
+void renderer_sync_floorcast_thread_data(Renderer* renderer, Map* map, Player *player){
+  if (!renderer || !map || !player){
+    printf("Incoirect pointer parameters in render_sync_floorcast_thread_data()\n");
+    return;
+  }
+
+  for (int i = 0; i < FLOOR_THREADS; i++){
+    renderer->floor_thread_data[i].player_pos_z = player->pos_z;
+    renderer->floor_thread_data[i].player_pos_y = player->pos.y;
+    renderer->floor_thread_data[i].player_pos_x = player->pos.x;
+      
+    renderer->floor_thread_data[i].player_plane_x = player->plane.x;
+    renderer->floor_thread_data[i].player_plane_y = player->plane.y;
+      
+    renderer->floor_thread_data[i].player_dir_x = player->dir.x;
+    renderer->floor_thread_data[i].player_dir_y = player->dir.y;
+    
+    SDL_AtomicSet(&renderer->floor_thread_data[i].work_complete, 0);
+    SDL_SemPost(renderer->floor_thread_data[i].work_semaphore);
+  }
+}
+
+
 void renderer_render_floorcast_buffer(Renderer* renderer){
   if (!renderer){
     printf("Incorrect renderer pointer to render_render_florcast_buffer\n");
   }
-
-  for (int i = 0; i < FLOOR_THREADS; i++) {
-    while (!SDL_AtomicGet(&renderer->floor_thread_data[i].work_complete)) {
-      SDL_Delay(0);
-    }
-  }
-
+  
   SDL_UnlockTexture(renderer->background_texture);
   SDL_RenderCopy(renderer->sdl_renderer, renderer->background_texture, NULL, NULL);
 }
@@ -595,28 +616,6 @@ int renderer_floorcast_fixed_thread(void *data) {
   #undef FIXED_MUL
   #undef FIXED_TO_INT
   #undef FIXED_FRAC
-}
-
-void renderer_sync_floorcast_thread_data(Renderer* renderer, Map* map, Player *player){
-  if (!renderer || !map || !player){
-    printf("Incoirect pointer parameters in render_sync_floorcast_thread_data()\n");
-    return;
-  }
-
-  for (int i = 0; i < FLOOR_THREADS; i++){
-    renderer->floor_thread_data[i].player_pos_z = player->pos_z;
-    renderer->floor_thread_data[i].player_pos_y = player->pos.y;
-    renderer->floor_thread_data[i].player_pos_x = player->pos.x;
-      
-    renderer->floor_thread_data[i].player_plane_x = player->plane.x;
-    renderer->floor_thread_data[i].player_plane_y = player->plane.y;
-      
-    renderer->floor_thread_data[i].player_dir_x = player->dir.x;
-    renderer->floor_thread_data[i].player_dir_y = player->dir.y;
-    
-    SDL_AtomicSet(&renderer->floor_thread_data[i].work_complete, 0);
-    SDL_SemPost(renderer->floor_thread_data[i].work_semaphore);
-  }
 }
 
 void renderer_floorcast_sse(Renderer* renderer, Map *map, Player *player) {

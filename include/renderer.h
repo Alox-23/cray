@@ -12,7 +12,7 @@
 #include "renderobject.h"
 
 #define RENDER_DISTANCE 300
-#define FLOOR_THREADS 1
+#define FLOOR_THREADS 8
 
 typedef struct{
   float m;
