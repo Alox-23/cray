@@ -63,17 +63,8 @@ void renderer_destroy(Renderer *renderer){
   if(!renderer){
     return;
   }
-  
-  for (int i = 0; i < FLOOR_THREADS; i++) {
-    while (!SDL_AtomicGet(&renderer->floor_thread_data[i].work_complete)) {
-      SDL_Delay(0);
-    }
-  }
-  
-  for (int i = 0; i < FLOOR_THREADS; i++){
-    SDL_DestroySemaphore(renderer->floor_thread_data[i].work_semaphore);
-  }
-  
+ 
+  renderer_thread_cleanup(renderer);
   SDL_DestroyTexture(renderer->background_texture);
   SDL_UnlockSurface(renderer->floor_surface);
   SDL_FreeSurface(renderer->floor_surface);
@@ -91,15 +82,22 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   Uint64 a1 = SDL_GetPerformanceCounter();
   renderer_sync_floorcast_thread_data(renderer, map, player);
   Uint64 b1 = SDL_GetPerformanceCounter();
+  
+  Uint64 a3 = SDL_GetPerformanceCounter();
+  renderer_raycast(renderer, map, player);
+  Uint64 b3 = SDL_GetPerformanceCounter();
+
   Uint64 a2 = SDL_GetPerformanceCounter();
   renderer_render_floorcast_buffer(renderer);
   Uint64 b2 = SDL_GetPerformanceCounter();
- 
+  
   double t1 = (double)(b1-a1) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
   double t2 = (double)(b2-a2) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
+  double t3 = (double)(b3-a3) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
 
-  //printf("Time for SYNC: %.3fms\n", t1);
-  //printf("Time for REND. %.3fms\n", t2);
+  printf("Time for SYNC: %.3fms\n", t1);
+  printf("Time for REND: %.3fms\n", t2);
+  printf("Time for RAYC: %.3fms\n", t3);
 
   SDL_Rect rect;
   rect.x = 0;
@@ -110,7 +108,7 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   SDL_SetRenderDrawColor(renderer->sdl_renderer, 150, 150, 220, 255);
   SDL_RenderFillRect(renderer->sdl_renderer, &rect);
 
-  //renderer_flush_queue(renderer);
+  renderer_flush_queue(renderer);
  
   //renderer_render_map_2d(renderer, map);
   //renderer_render_player_2d(renderer, player);
@@ -119,8 +117,32 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
 
 }
 
+void renderer_thread_cleanup(Renderer* renderer){
+  if (!renderer){
+    printf("invalid renderer passes to thread cleanup - cleanup not done\n");
+    return;
+  }
+
+  for (int i = 0; i < FLOOR_THREADS; i++){
+    SDL_AtomicSet(&renderer->floor_thread_data[i].should_exit, 1);
+    SDL_SemPost(renderer->floor_thread_data[i].work_semaphore);
+  }
+  
+  for (int i = 0; i < FLOOR_THREADS; i++) {
+    SDL_WaitThread(renderer->sdl_floor_threads[i], NULL);
+    renderer->sdl_floor_threads[i] = NULL;
+  }
+  
+  for (int i = 0; i < FLOOR_THREADS; i++){
+    SDL_DestroySemaphore(renderer->floor_thread_data[i].work_semaphore);
+    renderer->floor_thread_data[i].work_semaphore = NULL;
+  }
+}
+
 int renderer_create_floor_thread_data(Renderer* renderer){
-  renderer->background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height / 2);
+  renderer->floorcasting_height = renderer->height / 2; //hight of the result buffer of floorcasting 
+
+  renderer->background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->floorcasting_height);
   if (!renderer->background_texture){
     printf("Failed to create background_texture SDL_Texture: %s\n", SDL_GetError());
     return 0;
@@ -138,14 +160,14 @@ int renderer_create_floor_thread_data(Renderer* renderer){
     return 0;
   }
 
-  int floor_start = 0;
-  int floor_height = renderer->height/2;
+  int floor_start = renderer->floorcasting_height - renderer->height / 2;
+  int floor_height = renderer->height/2; //the actual height of the block of pixel xy values proccesed
   int rows_per_thread = floor_height / FLOOR_THREADS;
   
   for (int i = 0; i < FLOOR_THREADS; i++){
     renderer->floor_thread_data[i].floor_surface = renderer->floor_surface;
     renderer->floor_thread_data[i].width = renderer->width;
-    renderer->floor_thread_data[i].height = renderer->height / 2;
+    renderer->floor_thread_data[i].height = renderer->floorcasting_height;
     renderer->floor_thread_data[i].start_y = floor_start + i * rows_per_thread;
     renderer->floor_thread_data[i].end_y = floor_start + (i+1) * rows_per_thread;
     renderer->floor_thread_data[i].id = i;
@@ -533,7 +555,6 @@ int renderer_floorcast_fixed_thread(void *data) {
   printf("FloorThread with id:%d, has Launched!\n", thread_data->id);
   
   while (!SDL_AtomicGet(&thread_data->should_exit)){
-    
     SDL_SemWait(thread_data->work_semaphore);
     
     if (SDL_AtomicGet(&thread_data->should_exit)) break;
@@ -576,10 +597,10 @@ int renderer_floorcast_fixed_thread(void *data) {
     const int tex_height_mask = tex_height - 1;
 
     for (int y = thread_data->start_y; y < thread_data->end_y; y++) {
-      const int p = y - thread_data->height / 2;
-     
-      if (p == 0) continue;
+      int p = y - thread_data->height / 2;
 
+      if (p == 0) p=1;
+      
       // FIXED: Use proper fixed-point division (or avoid it)
       // Since p is small, we can use reciprocal multiplication
       const int row_distance = FIXED_MUL(pos_z_scaled, FIXED_SCALE / p);
@@ -611,6 +632,8 @@ int renderer_floorcast_fixed_thread(void *data) {
     }
     SDL_AtomicSet(&thread_data->work_complete, 1);
   }
+  
+  printf("Thread%d, has exited!\n", thread_data->id);
 
   #undef FIXED_SHIFT
   #undef FIXED_SCALE

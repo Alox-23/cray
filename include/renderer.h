@@ -46,6 +46,7 @@ typedef struct{
   float scale_2d;
   int width;
   int height;
+  int floorcasting_height;
   int raycasting_scale;
 
   FloorCastingThreadData floor_thread_data[FLOOR_THREADS];
@@ -71,6 +72,7 @@ void renderer_render_floorcast_buffer(Renderer* renderer);
 int renderer_create_floor_thread_data(Renderer* renderer);
 int renderer_floorcast_fixed_thread(void* data);
 void renderer_sync_floorcast_thread_data(Renderer* renderer, Map* map, Player* player);
+void renderer_thread_cleanup(Renderer* renderer);
 void renderer_floorcast_sse(Renderer* renderer, Map *map, Player *player);
 void renderer_floorcast_avx(Renderer* renderer, Map *map, Player *player);
 void renderer_flush_queue(Renderer* renderer);
