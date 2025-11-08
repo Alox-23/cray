@@ -24,6 +24,8 @@ typedef struct{
 typedef struct{
   SDL_Surface* floor_surface;
   SDL_Texture* texture_buffer;
+  Uint32* texture_pixels;
+  int texture_pitch;
 
   int id;
 

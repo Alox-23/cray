@@ -95,9 +95,9 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   double t2 = (double)(b2-a2) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
   double t3 = (double)(b3-a3) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
 
-  printf("Time for SYNC: %.3fms\n", t1);
-  printf("Time for REND: %.3fms\n", t2);
-  printf("Time for RAYC: %.3fms\n", t3);
+  //printf("Time for SYNC: %.3fms\n", t1);
+  //printf("Time for REND: %.3fms\n", t2);
+  //printf("Time for RAYC: %.3fms\n", t3);
 
   SDL_Rect rect;
   rect.x = 0;
@@ -150,6 +150,7 @@ int renderer_create_floor_thread_data(Renderer* renderer){
 
   SDL_Surface* csurface = IMG_Load("assets/x256/textures/Metal/Metal_07-256x256.png");
   renderer->floor_surface = SDL_ConvertSurfaceFormat(csurface, SDL_PIXELFORMAT_RGBA32, 0);
+  SDL_FreeSurface(csurface);
   if (!renderer->floor_surface){
     printf("Failed to load floor SDL_Surface: %s\n", SDL_GetError());
     return 0;
@@ -163,7 +164,7 @@ int renderer_create_floor_thread_data(Renderer* renderer){
   int floor_start = renderer->floorcasting_height - renderer->height / 2;
   int floor_height = renderer->height/2; //the actual height of the block of pixel xy values proccesed
   int rows_per_thread = floor_height / FLOOR_THREADS;
-  
+ 
   for (int i = 0; i < FLOOR_THREADS; i++){
     renderer->floor_thread_data[i].floor_surface = renderer->floor_surface;
     renderer->floor_thread_data[i].width = renderer->width;
@@ -195,6 +196,13 @@ void renderer_sync_floorcast_thread_data(Renderer* renderer, Map* map, Player *p
     return;
   }
 
+  Uint32* texture_pixels;
+  int texture_pitch;
+  if (SDL_LockTexture(renderer->background_texture, NULL, (void**)&texture_pixels, &texture_pitch) != 0){
+    printf("Failed to lock texture, skipping frame SDL_Error: %s\n", SDL_GetError());
+    return;
+  }
+
   for (int i = 0; i < FLOOR_THREADS; i++){
     renderer->floor_thread_data[i].player_pos_z = player->pos_z;
     renderer->floor_thread_data[i].player_pos_y = player->pos.y;
@@ -205,6 +213,9 @@ void renderer_sync_floorcast_thread_data(Renderer* renderer, Map* map, Player *p
       
     renderer->floor_thread_data[i].player_dir_x = player->dir.x;
     renderer->floor_thread_data[i].player_dir_y = player->dir.y;
+
+    renderer->floor_thread_data[i].texture_pixels = texture_pixels;
+    renderer->floor_thread_data[i].texture_pitch = texture_pitch;
     
     SDL_AtomicSet(&renderer->floor_thread_data[i].work_complete, 0);
     SDL_SemPost(renderer->floor_thread_data[i].work_semaphore);
@@ -559,13 +570,8 @@ int renderer_floorcast_fixed_thread(void *data) {
     
     if (SDL_AtomicGet(&thread_data->should_exit)) break;
 
-    Uint32* texture_pixels;
-    int texture_pitch;
-    if (SDL_LockTexture(thread_data->texture_buffer, NULL, (void**)&texture_pixels, &texture_pitch) != 0){
-      printf("Thread: %d: Failed to lock texture, skipping frame\n", thread_data->id);
-      SDL_AtomicSet(&thread_data->work_complete, 1);
-      continue;
-    }
+    Uint32* texture_pixels = thread_data->texture_pixels;
+    int texture_pitch = thread_data->texture_pitch; 
 
     const int pixels_per_row = texture_pitch / sizeof(Uint32);
     
