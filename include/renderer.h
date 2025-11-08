@@ -12,7 +12,7 @@
 #include "renderobject.h"
 
 #define RENDER_DISTANCE 300
-#define FLOOR_THREADS 1
+#define FLOOR_THREADS 1 //game does not wait for threads to finish so more threads wont help 0 to disable multithreading for floorcasting
 
 typedef struct{
   float m;
@@ -51,9 +51,13 @@ typedef struct{
   int floorcasting_height;
   int raycasting_scale;
 
+#if FLOOR_THREADS != 0
   FloorCastingThreadData floor_thread_data[FLOOR_THREADS];
   SDL_Thread* sdl_floor_threads[FLOOR_THREADS];
-
+#else 
+  FloorCastingThreadData floor_thread_data[1];
+  SDL_Thread* sdl_floor_threads[1];
+#endif
   SDL_Texture* background_texture;
   SDL_Surface* floor_surface;
   SDL_Renderer *sdl_renderer;
@@ -69,14 +73,11 @@ float renderer_calc_fog_brightness(FogSetting s, double var);
 void renderer_render_player_2d(Renderer *renderer, Player *player);
 void renderer_render_map_2d(Renderer *renderer, Map *map);
 void renderer_raycast(Renderer* renderer, Map *map, Player *player);
-void renderer_floorcast_fixed(Renderer* renderer, Map *map, Player *player);
 void renderer_render_floorcast_buffer(Renderer* renderer);
 int renderer_create_floor_thread_data(Renderer* renderer);
 int renderer_floorcast_fixed_thread(void* data);
 void renderer_sync_floorcast_thread_data(Renderer* renderer, Map* map, Player* player);
 void renderer_thread_cleanup(Renderer* renderer);
-void renderer_floorcast_sse(Renderer* renderer, Map *map, Player *player);
-void renderer_floorcast_avx(Renderer* renderer, Map *map, Player *player);
 void renderer_flush_queue(Renderer* renderer);
 void renderer_render(Renderer *renderer, Player *player, Map *map);
 void renderer_destroy(Renderer *renderer);
