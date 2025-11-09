@@ -6,7 +6,8 @@
 #include "../include/renderqueue.h"
 #include <stdlib.h>
 
-Renderer* renderer_create(){
+Renderer* renderer_create(Map *map){
+  if (!map) return NULL;
   Renderer* renderer = malloc(sizeof(Renderer));
   if (!renderer) return NULL;
   
@@ -51,7 +52,7 @@ Renderer* renderer_create(){
   texturemanager_add_texture(renderer->texture_manager, renderer->sdl_renderer, "assets/default.png");
   */ 
 
-  if (!renderer_create_floor_thread_data(renderer)){
+  if (!renderer_create_floor_thread_data(renderer, map)){
     printf("Failed to create floor thread data\n");
     return NULL;
   }
@@ -141,7 +142,7 @@ void renderer_thread_cleanup(Renderer* renderer){
   }
 }
 
-int renderer_create_floor_thread_data(Renderer* renderer){
+int renderer_create_floor_thread_data(Renderer* renderer, Map* map){
   renderer->floorcasting_height = renderer->height / 2; //hight of the result buffer of floorcasting 
 
   renderer->background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->floorcasting_height);
@@ -183,6 +184,7 @@ int renderer_create_floor_thread_data(Renderer* renderer){
     printf("FloorThread with id:%d works on rows %d-%d!\n", i, renderer->floor_thread_data[i].start_y, renderer->floor_thread_data[i].end_y);
   
     renderer->floor_thread_data[i].texture_buffer = renderer->background_texture; 
+    renderer->floor_thread_data[i].map_p = map;
 
     #if FLOOR_THREADS != 0
     renderer->floor_thread_data[i].work_semaphore = SDL_CreateSemaphore(0);
@@ -192,7 +194,7 @@ int renderer_create_floor_thread_data(Renderer* renderer){
     char thread_name[32];
     snprintf(thread_name, sizeof(thread_name), "FloorThread%d", i);
     
-    renderer->sdl_floor_threads[i] = SDL_CreateThread(renderer_floorcast_fixed_thread, thread_name, &renderer->floor_thread_data[i]);
+    renderer->sdl_floor_threads[i] = SDL_CreateThread(renderer_floorcast_fixed_thread_h, thread_name, &renderer->floor_thread_data[i]);
     #endif
   }
   
@@ -230,7 +232,14 @@ void renderer_sync_floorcast_thread_data(Renderer* renderer, Map* map, Player *p
 
     renderer->floor_thread_data[i].texture_pixels = texture_pixels;
     renderer->floor_thread_data[i].texture_pitch = texture_pitch;
-   
+  
+    renderer->floor_thread_data[i].map_p = map;
+
+    if (!renderer->floor_thread_data[i].map_p){
+      printf("Invalid map pointer passed to floorcasting thread during syncing\n");
+      return;
+    }
+
     #if FLOOR_THREADS != 0
     SDL_AtomicSet(&renderer->floor_thread_data[i].work_complete, 0);
     SDL_SemPost(renderer->floor_thread_data[i].work_semaphore);
@@ -523,7 +532,7 @@ int renderer_floorcast_fixed_thread(void *data) {
     const int fixed_ray_diff_x = FLOAT_TO_FIXED(ray_diff_x);
     const int fixed_ray_diff_y = FLOAT_TO_FIXED(ray_diff_y);
     
-    const int pos_z_scaled = FLOAT_TO_FIXED((0.5f + thread_data->player_pos_z) * thread_data->height);
+    int pos_z_scaled = FLOAT_TO_FIXED((0.5f + thread_data->player_pos_z) * thread_data->height);
     const int fixed_inv_width = FIXED_SCALE / thread_data->width;  // Note: This assumes width <= 65536
 
     // Texture info
@@ -540,7 +549,7 @@ int renderer_floorcast_fixed_thread(void *data) {
       if (p == 0) p=1;
       
       // FIXED: Use proper fixed-point division (or avoid it)
-      // Since p is small, we can use reciprocal multiplication
+      // Since p is small, we can use reciprocal multiplicatioon
       const int row_distance = FIXED_MUL(pos_z_scaled, FIXED_SCALE / p);
       
       // FIXED: Correct fixed-point multiplication chain
@@ -550,7 +559,7 @@ int renderer_floorcast_fixed_thread(void *data) {
       // FIXED: Correct position calculation
       int floor_x = pos_x + FIXED_MUL(row_distance, fixed_ray_dir_x0);
       int floor_y = pos_y + FIXED_MUL(row_distance, fixed_ray_dir_y0);
-      
+
       Uint32* dest_row = texture_pixels + y * pixels_per_row;
       
       for (int x = 0; x < thread_data->width; x++) {
@@ -561,11 +570,107 @@ int renderer_floorcast_fixed_thread(void *data) {
         // Convert to texture coordinates (0 to tex_width-1)
         const int texture_x = FIXED_MUL(frac_x, tex_width);
         const int texture_y = FIXED_MUL(frac_y, tex_height);
-        
-        dest_row[x] = tex_pixels[(texture_y & tex_height_mask) * tex_width + (texture_x & tex_width_mask)];
+
+        //map coordinates
+        int map_grid_x = FIXED_TO_INT(floor_x);
+        int map_grid_y = FIXED_TO_INT(floor_y);
+
+        if (map_grid_x%2==0 && map_grid_y%2 == 0){
+          dest_row[x] = tex_pixels[100]; 
+        }
+        else{
+          dest_row[x] = tex_pixels[(texture_y & tex_height_mask) * tex_width + (texture_x & tex_width_mask)];
+        }
 
         floor_x += floor_step_x;
         floor_y += floor_step_y;
+      }
+    }
+  #if FLOOR_THREADS != 0
+    SDL_AtomicSet(&thread_data->work_complete, 1);
+  }
+  printf("Thread%d, has exited!\n", thread_data->id);
+  #endif
+
+  #undef FIXED_SHIFT
+  #undef FIXED_SCALE
+  #undef FLOAT_TO_FIXED
+  #undef FIXED_MUL
+  #undef FIXED_TO_INT
+  #undef FIXED_FRAC
+}
+
+int renderer_floorcast_fixed_thread_h(void *data) {
+  FloorCastingThreadData* thread_data = (FloorCastingThreadData*)data;
+
+  // Fixed-point precision (16.16)
+  #define FIXED_SHIFT 16
+  #define FIXED_SCALE (1 << FIXED_SHIFT)
+  #define FLOAT_TO_FIXED(f) ((int)((f) * FIXED_SCALE))
+  #define FIXED_MUL(a, b) (((int64_t)(a) * (b)) >> FIXED_SHIFT)
+  #define FIXED_TO_INT(f) ((f) >> FIXED_SHIFT)
+  #define FIXED_FRAC(f) ((f) & (FIXED_SCALE - 1))
+
+  printf("FloorThread with id:%d, has Launched!\n", thread_data->id);
+ 
+  #if FLOOR_THREADS != 0
+  while (!SDL_AtomicGet(&thread_data->should_exit)){
+    SDL_SemWait(thread_data->work_semaphore);
+    
+    if (SDL_AtomicGet(&thread_data->should_exit)) break;
+  #endif
+    
+    const int tex_width = thread_data->floor_surface->w;
+    const int tex_height = thread_data->floor_surface->h;
+    const int tex_pitch = thread_data->floor_surface->pitch / 4;
+    const Uint32* tex_pixels = (Uint32*)thread_data->floor_surface->pixels;
+    const int tex_width_mask = tex_width - 1;
+    const int tex_height_mask = tex_height - 1;
+  
+    float ray_dir_x0;
+    float ray_dir_y0;
+    float ray_dir_x1;
+    float ray_dir_y1;
+    int p;
+    float pos_z;
+    float row_distance;
+    float floor_step_x;
+    float floor_step_y;
+    float floor_x;
+    float floor_y;
+    int cell_x;
+    int cell_y;
+    int texture_x;
+    int texture_y;
+    for (int y = thread_data->start_y; y < thread_data->end_y; y++){
+      ray_dir_x0 = thread_data->player_dir_x - thread_data->player_plane_x;
+      ray_dir_y0 = thread_data->player_dir_y - thread_data->player_plane_y;
+      ray_dir_x1 = thread_data->player_dir_x + thread_data->player_plane_x;
+      ray_dir_y1 = thread_data->player_dir_y + thread_data->player_plane_y;
+
+      p = y - thread_data->height /2;
+
+      pos_z = (0.5 + thread_data->player_pos_z) * thread_data->height;
+
+      row_distance = thread_data->player_pos_z / p;
+
+      floor_step_x = row_distance * (ray_dir_x1 - ray_dir_x0) / thread_data->width;
+      floor_step_y = row_distance * (ray_dir_y1 - ray_dir_y0) / thread_data->width;
+      
+      floor_x = thread_data->player_pos_x + row_distance * ray_dir_x0;
+      floor_y = thread_data->player_pos_y + row_distance * ray_dir_y0;
+    
+      for (int x = 0; x < thread_data->width; x++){
+        cell_x = (int)(floor_x);
+        cell_y = (int)(floor_y);
+
+        texture_x = (int)(tex_width * (floor_x - cell_x)) & tex_width_mask;
+        texture_y = (int)(tex_height * (floor_y - cell_y)) & tex_height_mask;
+   
+        floor_x += floor_step_x;
+        floor_y += floor_step_y;
+        
+        thread_data->texture_pixels[y*(thread_data->texture_pitch / sizeof(Uint32)) + x] = tex_pixels[(texture_y) * tex_width + (texture_x)];
       }
     }
   #if FLOOR_THREADS != 0

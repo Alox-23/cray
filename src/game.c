@@ -7,15 +7,15 @@ Game* game_create(){
 
   if (SDL_Init(SDL_INIT_EVERYTHING)) return NULL;  
  
-  game->renderer = renderer_create();
+  game->map = map_create(5, 200, 200);
+  if (!game->map) return NULL;
+
+  game->renderer = renderer_create(game->map);
   if (!game->renderer) return NULL;
 
   game->player = player_create();
   if (!game->player) return NULL;
   
-  game->map = map_create(1, 200, 200);
-  if (!game->map) return NULL;
-
   game->keystate = SDL_GetKeyboardState(NULL);
   
   game->state = 1;

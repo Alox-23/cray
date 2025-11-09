@@ -36,7 +36,9 @@ typedef struct{
   float player_plane_y;
   float player_dir_x;
   float player_dir_y;
-  
+
+  Map* map_p;
+
   int width, height, start_y, end_y;
 
   SDL_atomic_t should_exit;
@@ -67,15 +69,16 @@ typedef struct{
   TextureManager* texture_manager;
 }Renderer;
 
-Renderer* renderer_create();
+Renderer* renderer_create(Map *map);
 void renderer_render_texture_atlas(Renderer* renderer);
 float renderer_calc_fog_brightness(FogSetting s, double var);
 void renderer_render_player_2d(Renderer *renderer, Player *player);
 void renderer_render_map_2d(Renderer *renderer, Map *map);
 void renderer_raycast(Renderer* renderer, Map *map, Player *player);
 void renderer_render_floorcast_buffer(Renderer* renderer);
-int renderer_create_floor_thread_data(Renderer* renderer);
+int renderer_create_floor_thread_data(Renderer* renderer, Map* map);
 int renderer_floorcast_fixed_thread(void* data);
+int renderer_floorcast_fixed_thread_h(void* data);
 void renderer_sync_floorcast_thread_data(Renderer* renderer, Map* map, Player* player);
 void renderer_thread_cleanup(Renderer* renderer);
 void renderer_flush_queue(Renderer* renderer);
