@@ -80,6 +80,7 @@ void renderer_destroy(Renderer *renderer){
 }
 
 void renderer_render(Renderer *renderer, Player *player, Map *map){
+  SDL_SetRenderDrawColor(renderer->sdl_renderer, 150, 150, 220, 255);
   SDL_RenderClear(renderer->sdl_renderer);
 
   Uint64 a1 = SDL_GetPerformanceCounter();
@@ -87,7 +88,7 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   Uint64 b1 = SDL_GetPerformanceCounter();
   
   Uint64 a3 = SDL_GetPerformanceCounter();
-  renderer_raycast(renderer, map, player);
+  //renderer_raycast(renderer, map, player);
   Uint64 b3 = SDL_GetPerformanceCounter();
 
   Uint64 a2 = SDL_GetPerformanceCounter();
@@ -98,20 +99,11 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   double t2 = (double)(b2-a2) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
   double t3 = (double)(b3-a3) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
 
-  printf("Time for SYNC: %.3fms\n", t1);
-  printf("Time for REND: %.3fms\n", t2);
-  printf("Time for RAYC: %.3fms\n", t3);
-
-  SDL_Rect rect;
-  rect.x = 0;
-  rect.y = 0;
-  rect.h = renderer->height / 2;
-  rect.w = renderer->width;
- 
-  SDL_SetRenderDrawColor(renderer->sdl_renderer, 150, 150, 220, 255);
-  SDL_RenderFillRect(renderer->sdl_renderer, &rect);
-
-  renderer_flush_queue(renderer);
+  //printf("Time for SYNC: %.3fms\n", t1);
+  //printf("Time for REND: %.3fms\n", t2);
+  //printf("Time for RAYC: %.3fms\n", t3);
+  
+  //renderer_flush_queue(renderer);
  
   //renderer_render_map_2d(renderer, map);
   //renderer_render_player_2d(renderer, player);
@@ -143,15 +135,13 @@ void renderer_thread_cleanup(Renderer* renderer){
 }
 
 int renderer_create_floor_thread_data(Renderer* renderer, Map* map){
-  renderer->floorcasting_height = renderer->height / 2; //hight of the result buffer of floorcasting 
-
-  renderer->background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->floorcasting_height);
+  renderer->background_texture = SDL_CreateTexture(renderer->sdl_renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, renderer->width, renderer->height);
   if (!renderer->background_texture){
     printf("Failed to create background_texture SDL_Texture: %s\n", SDL_GetError());
     return 0;
   }
 
-  SDL_Surface* csurface = IMG_Load("assets/x256/textures/Metal/Metal_07-256x256.png");
+  SDL_Surface* csurface = IMG_Load("assets/x256/textures/Metal/Metal_01-256x256.png");
   renderer->floor_surface = SDL_ConvertSurfaceFormat(csurface, SDL_PIXELFORMAT_RGBA32, 0);
   SDL_FreeSurface(csurface);
   if (!renderer->floor_surface){
@@ -169,14 +159,14 @@ int renderer_create_floor_thread_data(Renderer* renderer, Map* map){
   num_threads = 1;
   #endif
 
-  int floor_start = renderer->floorcasting_height - renderer->height / 2;
+  int floor_start = renderer->height / 2;
   int floor_height = renderer->height/2; //the actual height of the block of pixel xy values proccesed
   int rows_per_thread = floor_height / num_threads;
  
   for (int i = 0; i < num_threads; i++){
     renderer->floor_thread_data[i].floor_surface = renderer->floor_surface;
     renderer->floor_thread_data[i].width = renderer->width;
-    renderer->floor_thread_data[i].height = renderer->floorcasting_height;
+    renderer->floor_thread_data[i].height = renderer->height;
     renderer->floor_thread_data[i].start_y = floor_start + i * rows_per_thread;
     renderer->floor_thread_data[i].end_y = floor_start + (i+1) * rows_per_thread;
     renderer->floor_thread_data[i].id = i;
@@ -475,7 +465,7 @@ void renderer_raycast(Renderer* renderer, Map *map, Player *player){
       obj = renderqueue_get_object(renderer->render_queue);
       if (!obj) break;
 
-      double vertical_offset = renderer->height * (z_level - player->pos_z) / (perp_wall_dist + 0.00001) - z_level;
+      double vertical_offset = renderer->height * (z_level - player->pos_z + 0.5f) / (perp_wall_dist + 0.00001) - z_level;
       
       obj->texture_id = texture_id;
       obj->alpha_value = 1;
@@ -532,7 +522,7 @@ int renderer_floorcast_fixed_thread(void *data) {
     const int fixed_ray_diff_x = FLOAT_TO_FIXED(ray_diff_x);
     const int fixed_ray_diff_y = FLOAT_TO_FIXED(ray_diff_y);
     
-    int pos_z_scaled = FLOAT_TO_FIXED((0.5f + thread_data->player_pos_z) * thread_data->height);
+    int pos_z_scaled = FLOAT_TO_FIXED(thread_data->player_pos_z * thread_data->height);
     const int fixed_inv_width = FIXED_SCALE / thread_data->width;  // Note: This assumes width <= 65536
 
     // Texture info
@@ -575,12 +565,7 @@ int renderer_floorcast_fixed_thread(void *data) {
         int map_grid_x = FIXED_TO_INT(floor_x);
         int map_grid_y = FIXED_TO_INT(floor_y);
 
-        if (map_grid_x%2==0 && map_grid_y%2 == 0){
-          dest_row[x] = tex_pixels[100]; 
-        }
-        else{
-          dest_row[x] = tex_pixels[(texture_y & tex_height_mask) * tex_width + (texture_x & tex_width_mask)];
-        }
+        dest_row[x] = tex_pixels[(texture_y & tex_height_mask) * tex_width + (texture_x & tex_width_mask)];
 
         floor_x += floor_step_x;
         floor_y += floor_step_y;
@@ -620,57 +605,118 @@ int renderer_floorcast_fixed_thread_h(void *data) {
     if (SDL_AtomicGet(&thread_data->should_exit)) break;
   #endif
     
+    const int pixels_per_row = thread_data->texture_pitch / sizeof(Uint32);
+    
     const int tex_width = thread_data->floor_surface->w;
     const int tex_height = thread_data->floor_surface->h;
     const int tex_pitch = thread_data->floor_surface->pitch / 4;
     const Uint32* tex_pixels = (Uint32*)thread_data->floor_surface->pixels;
     const int tex_width_mask = tex_width - 1;
     const int tex_height_mask = tex_height - 1;
-  
+    
     float ray_dir_x0;
     float ray_dir_y0;
     float ray_dir_x1;
     float ray_dir_y1;
     int p;
-    float pos_z;
+    float base_pos_z;
     float row_distance;
     float floor_step_x;
     float floor_step_y;
     float floor_x;
     float floor_y;
-    int cell_x;
-    int cell_y;
     int texture_x;
     int texture_y;
+    
     for (int y = thread_data->start_y; y < thread_data->end_y; y++){
       ray_dir_x0 = thread_data->player_dir_x - thread_data->player_plane_x;
       ray_dir_y0 = thread_data->player_dir_y - thread_data->player_plane_y;
       ray_dir_x1 = thread_data->player_dir_x + thread_data->player_plane_x;
       ray_dir_y1 = thread_data->player_dir_y + thread_data->player_plane_y;
 
-      p = y - thread_data->height /2;
+      p = y - thread_data->height / 2;
+     
+      // Base pos_z value (player height)
+      base_pos_z = thread_data->player_pos_z * thread_data->height;
 
-      pos_z = (0.5 + thread_data->player_pos_z) * thread_data->height;
+      Uint32* dest_row = thread_data->texture_pixels + y * pixels_per_row;
 
-      row_distance = thread_data->player_pos_z / p;
+      for (int x = 0; x < thread_data->width; x++){
+        // Calculate the current floor position for this pixel
+        float t = (float)x / thread_data->width;
+        float current_ray_dir_x = ray_dir_x0 + t * (ray_dir_x1 - ray_dir_x0);
+        float current_ray_dir_y = ray_dir_y0 + t * (ray_dir_y1 - ray_dir_y0);
+        
+        // Get the cell coordinates for height lookup
+        int cell_x = (int)floor_x;
+        int cell_y = (int)floor_y;
+        
+        // Get the height at this cell from the height map
 
+        float cell_height = 0;
+        if (cell_x > 2 && cell_y > 2){
+          float cell_height = -2;
+          // Adjust pos_z based on cell height
+          float adjusted_pos_z = base_pos_z + cell_height * thread_data->height;
+          
+          // Recalculate row_distance with adjusted height
+          row_distance = adjusted_pos_z / p;
+          
+          // Recalculate floor position with adjusted row_distance
+          floor_x = thread_data->player_pos_x + row_distance * current_ray_dir_x;
+          floor_y = thread_data->player_pos_y + row_distance * current_ray_dir_y;
+          
+          // Calculate texture coordinates
+          texture_x = (int)(tex_width * (floor_x - (int)floor_x));
+          texture_y = (int)(tex_height * (floor_y - (int)floor_y));
+          
+          // Ensure texture coordinates are within bounds
+          texture_x = texture_x & tex_width_mask;
+          texture_y = texture_y & tex_height_mask;
+          
+          Uint32 color = tex_pixels[100];
+          
+          dest_row[x] = color; 
+        }
+        else{
+          // Adjust pos_z based on cell height
+          float adjusted_pos_z = base_pos_z + cell_height * thread_data->height;
+          
+          // Recalculate row_distance with adjusted height
+          row_distance = adjusted_pos_z / p;
+          
+          // Recalculate floor position with adjusted row_distance
+          floor_x = thread_data->player_pos_x + row_distance * current_ray_dir_x;
+          floor_y = thread_data->player_pos_y + row_distance * current_ray_dir_y;
+          
+          // Calculate texture coordinates
+          texture_x = (int)(tex_width * (floor_x - (int)floor_x));
+          texture_y = (int)(tex_height * (floor_y - (int)floor_y));
+          
+          // Ensure texture coordinates are within bounds
+          texture_x = texture_x & tex_width_mask;
+          texture_y = texture_y & tex_height_mask;
+          
+          Uint32 color = tex_pixels[texture_y * tex_width + texture_x];
+          
+          dest_row[x] = color; 
+        }  
+      }
+      
+      // Update floor_x and floor_y for the next row using the original calculation
+      // This maintains the original algorithm's progression
+      row_distance = base_pos_z / p;
       floor_step_x = row_distance * (ray_dir_x1 - ray_dir_x0) / thread_data->width;
       floor_step_y = row_distance * (ray_dir_y1 - ray_dir_y0) / thread_data->width;
       
-      floor_x = thread_data->player_pos_x + row_distance * ray_dir_x0;
-      floor_y = thread_data->player_pos_y + row_distance * ray_dir_y0;
-    
-      for (int x = 0; x < thread_data->width; x++){
-        cell_x = (int)(floor_x);
-        cell_y = (int)(floor_y);
-
-        texture_x = (int)(tex_width * (floor_x - cell_x)) & tex_width_mask;
-        texture_y = (int)(tex_height * (floor_y - cell_y)) & tex_height_mask;
-   
-        floor_x += floor_step_x;
-        floor_y += floor_step_y;
-        
-        thread_data->texture_pixels[y*(thread_data->texture_pitch / sizeof(Uint32)) + x] = tex_pixels[(texture_y) * tex_width + (texture_x)];
+      if (y == thread_data->start_y) {
+        // Initialize floor position for the first row
+        floor_x = thread_data->player_pos_x + row_distance * ray_dir_x0;
+        floor_y = thread_data->player_pos_y + row_distance * ray_dir_y0;
+      } else {
+        // Update floor position for next row
+        floor_x += floor_step_x * thread_data->width;
+        floor_y += floor_step_y * thread_data->width;
       }
     }
   #if FLOOR_THREADS != 0

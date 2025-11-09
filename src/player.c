@@ -7,7 +7,7 @@ Player* player_create(){
 
   p->pos.x = 5;
   p->pos.y = 5;
-  p->pos_z = 0; //separate variable not store in Vector2 pos;
+  p->pos_z = 0.5; //separate variable not store in Vector2 pos;
 
   p->dir.x = 1;
   p->dir.y = 0;
@@ -73,7 +73,7 @@ void player_update(Player *player, double delta_time){
   player->plane = rotate(player->plane, player->a_vel * delta_time);
   player->angle += player->a_vel * delta_time;
 
-  printf("player_z: %f\n");
+  printf("player_z: %.3f\n", player->pos_z);
 
   player->rect.x = player->pos.x -5;
   player->rect.y = player->pos.y -5;

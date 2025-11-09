@@ -50,7 +50,6 @@ typedef struct{
   float scale_2d;
   int width;
   int height;
-  int floorcasting_height;
   int raycasting_scale;
 
 #if FLOOR_THREADS != 0
