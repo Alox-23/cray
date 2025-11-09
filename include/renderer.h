@@ -23,6 +23,7 @@ typedef struct{
 
 typedef struct{
   SDL_Surface* floor_surface;
+  SDL_Surface* floor_surface_alt;
   SDL_Texture* texture_buffer;
   Uint32* texture_pixels;
   int texture_pitch;
@@ -60,7 +61,6 @@ typedef struct{
   SDL_Thread* sdl_floor_threads[1];
 #endif
   SDL_Texture* background_texture;
-  SDL_Surface* floor_surface;
   SDL_Renderer *sdl_renderer;
   SDL_Window *window;
 

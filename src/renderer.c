@@ -65,12 +65,8 @@ void renderer_destroy(Renderer *renderer){
     return;
   }
 
-  #if FLOOR_THREADS != 0
   renderer_thread_cleanup(renderer);
-  #endif
   SDL_DestroyTexture(renderer->background_texture);
-  SDL_UnlockSurface(renderer->floor_surface);
-  SDL_FreeSurface(renderer->floor_surface);
   texturemanager_destroy(renderer->texture_manager);
   renderqueue_destroy(renderer->render_queue);
   SDL_DestroyRenderer(renderer->sdl_renderer);
@@ -88,7 +84,7 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   Uint64 b1 = SDL_GetPerformanceCounter();
   
   Uint64 a3 = SDL_GetPerformanceCounter();
-  //renderer_raycast(renderer, map, player);
+  renderer_raycast(renderer, map, player);
   Uint64 b3 = SDL_GetPerformanceCounter();
 
   Uint64 a2 = SDL_GetPerformanceCounter();
@@ -103,7 +99,7 @@ void renderer_render(Renderer *renderer, Player *player, Map *map){
   //printf("Time for REND: %.3fms\n", t2);
   //printf("Time for RAYC: %.3fms\n", t3);
   
-  //renderer_flush_queue(renderer);
+  renderer_flush_queue(renderer);
  
   //renderer_render_map_2d(renderer, map);
   //renderer_render_player_2d(renderer, player);
@@ -117,7 +113,12 @@ void renderer_thread_cleanup(Renderer* renderer){
     printf("invalid renderer passes to thread cleanup - cleanup not done\n");
     return;
   }
-
+  
+  for (int i = 0; i < FLOOR_THREADS; i++){
+    SDL_FreeSurface(renderer->floor_thread_data[i].floor_surface);
+    SDL_FreeSurface(renderer->floor_thread_data[i].floor_surface_alt);
+  }
+  #if FLOOR_THREADS != 0 
   for (int i = 0; i < FLOOR_THREADS; i++){
     SDL_AtomicSet(&renderer->floor_thread_data[i].should_exit, 1);
     SDL_SemPost(renderer->floor_thread_data[i].work_semaphore);
@@ -132,6 +133,7 @@ void renderer_thread_cleanup(Renderer* renderer){
     SDL_DestroySemaphore(renderer->floor_thread_data[i].work_semaphore);
     renderer->floor_thread_data[i].work_semaphore = NULL;
   }
+  #endif
 }
 
 int renderer_create_floor_thread_data(Renderer* renderer, Map* map){
@@ -139,21 +141,8 @@ int renderer_create_floor_thread_data(Renderer* renderer, Map* map){
   if (!renderer->background_texture){
     printf("Failed to create background_texture SDL_Texture: %s\n", SDL_GetError());
     return 0;
-  }
-
-  SDL_Surface* csurface = IMG_Load("assets/x256/textures/Metal/Metal_01-256x256.png");
-  renderer->floor_surface = SDL_ConvertSurfaceFormat(csurface, SDL_PIXELFORMAT_RGBA32, 0);
-  SDL_FreeSurface(csurface);
-  if (!renderer->floor_surface){
-    printf("Failed to load floor SDL_Surface: %s\n", SDL_GetError());
-    return 0;
-  }
-
-  if (SDL_LockSurface(renderer->floor_surface)){
-    printf("Failed to lock renderer->floor_surface: %s\n", SDL_GetError());
-    return 0;
-  }
-
+  } 
+  
   int num_threads = FLOOR_THREADS;
   #if FLOOR_THREADS == 0 
   num_threads = 1;
@@ -164,7 +153,6 @@ int renderer_create_floor_thread_data(Renderer* renderer, Map* map){
   int rows_per_thread = floor_height / num_threads;
  
   for (int i = 0; i < num_threads; i++){
-    renderer->floor_thread_data[i].floor_surface = renderer->floor_surface;
     renderer->floor_thread_data[i].width = renderer->width;
     renderer->floor_thread_data[i].height = renderer->height;
     renderer->floor_thread_data[i].start_y = floor_start + i * rows_per_thread;
@@ -175,7 +163,33 @@ int renderer_create_floor_thread_data(Renderer* renderer, Map* map){
   
     renderer->floor_thread_data[i].texture_buffer = renderer->background_texture; 
     renderer->floor_thread_data[i].map_p = map;
+    
+    SDL_Surface* csurface = IMG_Load("assets/x256/textures/Metal/Metal_01-256x256.png");
+    renderer->floor_thread_data[i].floor_surface = SDL_ConvertSurfaceFormat(csurface, SDL_PIXELFORMAT_RGBA32, 0);
+    SDL_FreeSurface(csurface);
+    if (!renderer->floor_thread_data[i].floor_surface){
+      printf("Failed to load floor SDL_Surface: %s\n", SDL_GetError());
+      return 0;
+    }
 
+    SDL_Surface* csurface1 = IMG_Load("assets/x256/textures/Wood/Wood_01-256x256.png");
+    renderer->floor_thread_data[i].floor_surface_alt = SDL_ConvertSurfaceFormat(csurface1, SDL_PIXELFORMAT_RGBA32, 0);
+    SDL_FreeSurface(csurface1);
+    if (!renderer->floor_thread_data[i].floor_surface_alt){
+      printf("Failed to load floor SDL_Surface: %s\n", SDL_GetError());
+      return 0;
+    }
+
+    if (SDL_LockSurface(renderer->floor_thread_data[i].floor_surface)){
+      printf("Failed to lock renderer->floor_surface: %s\n", SDL_GetError());
+      return 0;
+    }
+    
+    if (SDL_LockSurface(renderer->floor_thread_data[i].floor_surface_alt)){
+      printf("Failed to lock renderer->floor_surface: %s\n", SDL_GetError());
+      return 0;
+    }
+    
     #if FLOOR_THREADS != 0
     renderer->floor_thread_data[i].work_semaphore = SDL_CreateSemaphore(0);
     SDL_AtomicSet(&renderer->floor_thread_data[i].should_exit, 0);
@@ -611,6 +625,7 @@ int renderer_floorcast_fixed_thread_h(void *data) {
     const int tex_height = thread_data->floor_surface->h;
     const int tex_pitch = thread_data->floor_surface->pitch / 4;
     const Uint32* tex_pixels = (Uint32*)thread_data->floor_surface->pixels;
+    const Uint32* tex_pixels_alt = (Uint32*)thread_data->floor_surface_alt->pixels;
     const int tex_width_mask = tex_width - 1;
     const int tex_height_mask = tex_height - 1;
     
@@ -654,7 +669,7 @@ int renderer_floorcast_fixed_thread_h(void *data) {
         // Get the height at this cell from the height map
 
         float cell_height = 0;
-        if (cell_x > 2 && cell_y > 2){
+        if (cell_x > 2 && cell_y > 2 && cell_x < 10 && cell_y < 10){
           float cell_height = -2;
           // Adjust pos_z based on cell height
           float adjusted_pos_z = base_pos_z + cell_height * thread_data->height;
@@ -674,7 +689,7 @@ int renderer_floorcast_fixed_thread_h(void *data) {
           texture_x = texture_x & tex_width_mask;
           texture_y = texture_y & tex_height_mask;
           
-          Uint32 color = tex_pixels[100];
+          Uint32 color = tex_pixels_alt[texture_y * tex_width + texture_x];
           
           dest_row[x] = color; 
         }
